@@ -7,7 +7,7 @@ import { money } from '../api.js';
 
 const AREA = 'Koforidua, Ghana'; // TODO: make this a user-selectable delivery area
 
-// Put your logo at client/public/logo.png. Falls back to a "DB" mark if it's missing.
+// Logo lives at client/public/images/logo.png. Falls back to a "DB" mark if it's missing.
 function Logo() {
   const [broken, setBroken] = useState(false);
   return (
@@ -15,7 +15,7 @@ function Logo() {
       {broken ? (
         <span className="grid h-9 w-9 place-items-center rounded-lg bg-leaf font-display text-base font-extrabold text-white">DB</span>
       ) : (
-        <img src="/logo.png" alt="De-Boyz Foods" onError={() => setBroken(true)} className="h-10 w-10 rounded-lg object-cover" />
+        <img src="/images/logo.png" alt="De-Boyz Foods" onError={() => setBroken(true)} className="h-10 w-10 rounded-lg object-cover" />
       )}
     </Link>
   );

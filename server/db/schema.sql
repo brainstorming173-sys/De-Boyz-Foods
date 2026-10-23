@@ -102,3 +102,7 @@ UPDATE orders SET payment_network = 'mtn' WHERE payment_method = 'momo_now' AND 
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_txn_id TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_sender TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_payment_txn ON orders (UPPER(payment_txn_id)) WHERE payment_txn_id IS NOT NULL;
+
+-- Exact delivery location the customer pinned on the map (rider directions). Safe to re-run.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_lat DOUBLE PRECISION;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_lng DOUBLE PRECISION;

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Navigation } from 'lucide-react';
 import { api, money } from '../../api.js';
 import { MealsManager, ProductsManager } from './CatalogManager.jsx';
 
@@ -33,8 +34,24 @@ export default function Dashboard() {
     } catch (e) { setError(e.message); }
   }
 
-  // Telecel / AirtelTigo payments are confirmed by hand: shows the customer's transaction ID and the confirm / reject buttons.
-  const manualPay = (o) => o.payment_method === 'momo_now' && o.payment_network && o.payment_network !== 'mtn' && (
+  // Turn-by-turn directions to the customer's pin (falls back to the typed address for older orders).
+  const directions = (o) => {
+    if (o.fulfillment !== 'delivery') return null;
+    const pinned = o.delivery_lat != null && o.delivery_lng != null;
+    if (!pinned && !o.address) return null;
+    const google = pinned
+      ? `https://www.google.com/maps/dir/?api=1&destination=${o.delivery_lat},${o.delivery_lng}&travelmode=driving`
+      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(o.address)}&travelmode=driving`;
+    return (
+      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+        <a href={google} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-full bg-leaf px-3 py-1 font-semibold text-white"><Navigation className="h-3.5 w-3.5" /> {pinned ? 'Get directions' : 'Directions (from address)'}</a>
+        {pinned && <a href={`https://waze.com/ul?ll=${o.delivery_lat},${o.delivery_lng}&navigate=yes`} target="_blank" rel="noopener noreferrer" className="rounded-full bg-white px-3 py-1 font-semibold ring-1 ring-black/15">Waze</a>}
+      </div>
+    );
+  };
+
+  // Every mobile money payment is confirmed by hand: shows the customer's transaction ID and the confirm / reject buttons.
+  const manualPay = (o) => o.payment_method === 'momo_now' && o.payment_network && (
     <div className="mt-2 space-y-1 text-xs">
       {o.payment_txn_id
         ? <p className="break-all text-black/70">Txn ID: <strong>{o.payment_txn_id}</strong><br />From: {o.payment_sender}</p>
@@ -90,6 +107,7 @@ export default function Dashboard() {
                 <p className="font-semibold">{o.customer_name}</p>
                 <a href={`tel:${o.phone}`} className="text-leaf underline">{o.phone}</a>
                 <p className="break-words text-black/60">{o.fulfillment === 'pickup' ? 'Pickup' : o.address}</p>
+                {directions(o)}
               </div>
 
               <ul className="mt-3 space-y-0.5 rounded-xl bg-black/[0.03] p-3 text-sm">
@@ -121,7 +139,7 @@ export default function Dashboard() {
               {orders?.map((o) => (
                 <tr key={o.id} className="align-top">
                   <td className="p-4 font-semibold">{o.order_no}<div className="text-xs font-normal text-black/50">{new Date(o.created_at).toLocaleString()}</div></td>
-                  <td className="p-4">{o.customer_name}<div className="text-xs text-black/50">{o.phone}</div><div className="text-xs text-black/50">{o.fulfillment === 'pickup' ? 'Pickup' : o.address}</div></td>
+                  <td className="p-4">{o.customer_name}<div className="text-xs text-black/50">{o.phone}</div><div className="text-xs text-black/50">{o.fulfillment === 'pickup' ? 'Pickup' : o.address}</div>{directions(o)}</td>
                   <td className="p-4">{o.items.map((i, n) => <div key={n}>{i.qty} &times; {i.name}</div>)}</td>
                   <td className="p-4 font-semibold">{money(o.total)}</td>
                   <td className="p-4">{PAY[o.payment_method]} <span className="text-xs text-black/50">({o.payment_status})</span>{o.payment_method === 'momo_now' && NETWORK[o.payment_network] && <div className="text-xs text-black/50">{NETWORK[o.payment_network]}</div>}{manualPay(o)}</td>

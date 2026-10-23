@@ -6,7 +6,6 @@ import { NETWORKS, guessNetwork, normalizePhone } from '../momo.js';
 import NetworkPicker from '../components/NetworkPicker.jsx';
 
 const POLL_MS = 4000;
-const GIVE_UP_MS = 150000; // mobile money prompts expire after a couple of minutes
 
 // Defined outside PayMomo so inputs keep focus while typing.
 const Card = ({ children }) => <div className="mx-auto max-w-md px-4 py-10 text-center sm:py-16">{children}</div>;
@@ -18,7 +17,7 @@ export default function PayMomo() {
   const started = useRef(false);
 
   const [order, setOrder] = useState(null);
-  const [stage, setStage] = useState('loading'); // loading | form | send | review | waiting | paid | failed | timeout
+  const [stage, setStage] = useState('loading'); // loading | form | starting | send | review | paid | failed
   const [phone, setPhone] = useState(state?.phone || '');
   const [picked, setPicked] = useState(state?.network || null); // customer's choice; falls back to a guess from the number
   const [networks, setNetworks] = useState({ mtn: true, telecel: true, airteltigo: true }); // id -> can pay online
@@ -29,16 +28,15 @@ export default function PayMomo() {
 
   const network = picked || guessNetwork(phone);
   const label = network ? NETWORKS[network].label : 'mobile money';
-  const manual = !!network && network !== 'mtn';
 
   async function start(p = phone, n = network) {
     setError('');
     if (!normalizePhone(p)) return setError('Enter a valid mobile money number, e.g. 024 123 4567');
     if (!n) return setError('Choose your mobile money network');
-    setStage('waiting');
+    setStage('starting');
     try {
       const res = await api.chargeMomo(orderNo, p, n);
-      if (res.next === 'manual') { setPayTo(res.numbers || []); setTxnId(''); setStage('send'); }
+      setPayTo(res.numbers || []); setTxnId(''); setStage('send');
     } catch (e) {
       setError(e.message);
       setStage('form');
@@ -76,23 +74,21 @@ export default function PayMomo() {
       const n = state?.network || o.payment_network || guessNetwork(state?.phone);
       if (!picked && n) setPicked(n);
       // The server refuses a network that can't take online payment and says so; start() shows that message.
-      if (o.payment_network && o.payment_network !== 'mtn' && o.payment_txn_id) return setStage('review'); // already submitted, awaiting confirmation
+      if (o.payment_txn_id) return setStage('review'); // already submitted, awaiting confirmation
       if (state?.phone && n && !started.current) { started.current = true; start(state.phone, n); }
       else setStage('form');
     }).catch((e) => { setError(e.message); setStage('failed'); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderNo]);
 
-  // While the customer approves on their phone (MTN) or we confirm their transfer, ask the server every few seconds.
+  // While we confirm the customer's transfer, ask the server every few seconds.
   useEffect(() => {
-    if (stage !== 'waiting' && stage !== 'review') return;
-    const began = Date.now();
+    if (stage !== 'review') return;
     const id = setInterval(async () => {
       try {
         const { payment_status } = await api.paymentStatus(orderNo);
         if (payment_status === 'paid') setStage('paid');
-        else if (payment_status === 'failed') { setError(stage === 'review' ? "We couldn't confirm that payment. Check the details and try again, or contact us." : 'The payment was declined or cancelled.'); setStage('failed'); }
-        else if (stage === 'waiting' && Date.now() - began > GIVE_UP_MS) setStage('timeout');
+        else if (payment_status === 'failed') { setError("We couldn't confirm that payment. Check the details and try again, or contact us."); setStage('failed'); }
       } catch { /* keep polling through network blips */ }
     }, POLL_MS);
     return () => clearInterval(id);
@@ -151,23 +147,13 @@ export default function PayMomo() {
     </Card>
   );
 
-  if (stage === 'waiting') return (
-    <Card>
-      <span className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-leaf-soft"><Smartphone className="h-9 w-9 text-leaf" /></span>
-      <h1 className="mt-6 text-2xl font-extrabold sm:text-3xl">Check your phone</h1>
-      <p className="mt-2 text-base text-black/70 sm:text-lg">Approve the payment of <strong>{amount}</strong> and enter your {label} PIN.</p>
-      <p className="mt-6 flex items-center justify-center gap-2 text-sm text-black/60"><Loader2 className="h-4 w-4 animate-spin" /> Waiting for your approval...</p>
-      <p className="mx-auto mt-6 max-w-sm rounded-xl bg-black/[0.04] p-3 text-xs text-black/60">
-        No prompt? Dial *170# and check My Approvals, or try again.
-      </p>
-    </Card>
-  );
+  if (stage === 'starting') return <Card><Loader2 className="mx-auto h-8 w-8 animate-spin text-leaf" /></Card>;
 
-  if (stage === 'failed' || stage === 'timeout') return (
+  if (stage === 'failed') return (
     <Card>
       <XCircle className="mx-auto h-14 w-14 text-chili" />
-      <h1 className="mt-5 text-2xl font-extrabold sm:text-3xl">{stage === 'timeout' ? "We didn't get your approval" : "Payment didn't go through"}</h1>
-      <p className="mt-2 text-black/65">{error || 'The prompt may have expired. Your order is saved, so you can try again.'}</p>
+      <h1 className="mt-5 text-2xl font-extrabold sm:text-3xl">Payment didn't go through</h1>
+      <p className="mt-2 text-black/65">{error || 'Your order is saved, so you can try again.'}</p>
       <div className="mt-6 flex flex-wrap justify-center gap-3">
         <button className="btn-green" onClick={() => { setError(''); setStage('form'); }}>Try again</button>
         <Link to={`/order/${orderNo}`} className="btn-ghost">View order</Link>
@@ -179,15 +165,15 @@ export default function PayMomo() {
   return (
     <Card>
       <h1 className="text-2xl font-extrabold sm:text-3xl">Pay {amount}</h1>
-      <p className="mt-2 text-black/65">Order {orderNo}. {manual ? `You'll send the money from your ${label} number.` : `We'll send a prompt to your ${label} number.`}</p>
+      <p className="mt-2 text-black/65">Order {orderNo}. You'll send the money from your {label} number.</p>
       <form onSubmit={(e) => { e.preventDefault(); start(); }} className="mt-6 space-y-4 text-left">
         <div>
           <p className="label">Network</p>
           <NetworkPicker value={network} onChange={setPicked} available={networks} />
         </div>
-        <div><label className="label" htmlFor="mp">{manual ? `${label} number you'll send from` : `${label} number`}</label><input id="mp" className="field" inputMode="tel" required placeholder="024 000 0000" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+        <div><label className="label" htmlFor="mp">{label} number you'll send from</label><input id="mp" className="field" inputMode="tel" required placeholder="024 000 0000" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
         {error && <p role="alert" className="text-sm text-chili">{error}</p>}
-        <button className="btn-green w-full py-3.5"><Smartphone className="h-4 w-4" /> {manual ? 'Show where to send the money' : 'Send prompt to my phone'}</button>
+        <button className="btn-green w-full py-3.5"><Smartphone className="h-4 w-4" /> Show where to send the money</button>
       </form>
     </Card>
   );

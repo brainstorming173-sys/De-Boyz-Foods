@@ -153,7 +153,7 @@ const orderNo = () => 'DB-' + crypto.randomBytes(3).toString('hex').toUpperCase(
 
 export const orders = {
   // Prices are always read from the database, never trusted from the client.
-  async create({ userId, customer, items, fulfillment, paymentMethod }) {
+  async create({ userId, customer, items, fulfillment, paymentMethod, location }) {
     return tx(async (c) => {
       const priced = [];
       for (const it of items) {
@@ -182,12 +182,13 @@ export const orders = {
 
       const { rows } = await c.query(
         `INSERT INTO orders (order_no, user_id, customer_name, phone, email, fulfillment, address, note,
-                             payment_method, payment_reference, subtotal, delivery_fee, total)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+                             payment_method, payment_reference, subtotal, delivery_fee, total, delivery_lat, delivery_lng)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
         [
           no, userId || null, customer.name, customer.phone, customer.email || null, fulfillment,
           fulfillment === 'delivery' ? customer.address : null, customer.note || null,
           paymentMethod, null, subtotal, deliveryFee, total,
+          fulfillment === 'delivery' ? location?.lat ?? null : null, fulfillment === 'delivery' ? location?.lng ?? null : null,
         ]
       );
       const order = rows[0];

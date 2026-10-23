@@ -14,38 +14,10 @@ async function loadPayable(orderNo) {
   return order;
 }
 
-// Asks the provider directly what happened and updates our record. Returns 'paid' | 'failed' | 'pending'.
-async function check(order) {
-  if (order.payment_status === 'paid') return 'paid';
-  if (!order.payment_reference) return 'pending';
-  const network = order.payment_network || 'mtn'; // orders from before multi-network were all MTN
-  if (pay.isManual(network)) return order.payment_status; // an admin confirms these by hand
-  let tx;
-  try {
-    tx = await pay.getPayment(order.payment_reference);
-  } catch (e) {
-    if (e.gateway) return 'pending';
-    throw e;
-  }
-  if (tx.status === 'SUCCESSFUL') {
-    if (Math.abs(Number(tx.amount) - Number(order.total)) < 0.005 && tx.currency === pay.currencyFor(network)) {
-      await orders.markPaidByNo(order.order_no);
-      return 'paid';
-    }
-    console.error(`Amount mismatch on ${order.order_no}: got ${tx.amount} ${tx.currency}`);
-    return 'failed';
-  }
-  if (tx.status === 'FAILED') {
-    await orders.markFailedByNo(order.order_no);
-    return 'failed';
-  }
-  return 'pending';
-}
-
 // Which networks can pay online right now (the checkout greys out the rest).
 r.get('/networks', (_req, res) => res.json(pay.listNetworks()));
 
-// 1) Send the payment prompt to the customer's phone.
+// 1) Register the payment attempt and tell the customer which number(s) to send the money to.
 r.post('/momo/charge', wrap(async (req, res) => {
   const order = await loadPayable(req.body.orderNo);
   if (order.payment_status === 'paid') return res.json({ status: 'success', message: 'Already paid' });
@@ -60,19 +32,16 @@ r.post('/momo/charge', wrap(async (req, res) => {
 
   const referenceId = crypto.randomUUID(); // a new one per attempt
   await orders.setPaymentRef(order.order_no, referenceId, network);
-  const step = await pay.start({ network, referenceId, order, phone });
-  if (step.next === 'manual') {
-    return res.json({ status: 'pending', next: 'manual', numbers: step.numbers, amount: Number(order.total) });
-  }
-  res.json({ status: 'pending', next: step.next, message: 'Approve the prompt on your phone with your MoMo PIN.' });
+  const step = await pay.start();
+  res.json({ status: 'pending', next: step.next, numbers: step.numbers, amount: Number(order.total) });
 }));
 
-// 1b) Telecel / AirtelTigo: the customer has sent the money and tells us the transaction ID.
-//     The order stays unpaid until an admin confirms it.
+// 2) The customer has sent the money and tells us the transaction ID.
+//    The order stays unpaid until an admin confirms it.
 r.post('/momo/manual', wrap(async (req, res) => {
   const order = await loadPayable(req.body.orderNo);
   if (order.payment_status === 'paid') return res.json({ status: 'success', message: 'Already paid' });
-  if (!order.payment_reference || !pay.isManual(order.payment_network || 'mtn')) throw bad('Start the payment first');
+  if (!order.payment_reference) throw bad('Start the payment first');
   const txnId = String(req.body.txnId || '').trim();
   if (!/^[A-Za-z0-9]{6,20}$/.test(txnId)) throw bad('Enter the transaction ID from your payment confirmation SMS');
   const sender = normalizePhone(req.body.senderPhone);
@@ -86,19 +55,10 @@ r.post('/momo/manual', wrap(async (req, res) => {
   res.json({ status: 'pending', message: 'Thanks! We are confirming your payment.' });
 }));
 
-// 2) The browser polls this while the customer approves on their phone.
+// 3) The browser polls this while an admin confirms the payment.
 r.get('/status/:orderNo', wrap(async (req, res) => {
   const order = await loadPayable(req.params.orderNo);
-  res.json({ payment_status: await check(order), submitted: !!order.payment_txn_id });
-}));
-
-// 3) Optional MTN callback (production). The body is never trusted: it only triggers a
-//    fresh status check straight from MTN.
-r.all('/momo/callback', wrap(async (req, res) => {
-  const no = String(req.body?.externalId || '').toUpperCase();
-  const order = no ? await orders.getByNo(no) : null;
-  if (order) await check(order).catch(console.error);
-  res.sendStatus(200);
+  res.json({ payment_status: order.payment_status, submitted: !!order.payment_txn_id });
 }));
 
 export default r;

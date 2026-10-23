@@ -16,7 +16,15 @@ r.post('/', optionalAuth, wrap(async (req, res) => {
   if (!['delivery', 'pickup'].includes(fulfillment)) throw bad('Choose delivery or pickup');
   if (!['cash', 'momo', 'momo_now'].includes(paymentMethod)) throw bad('Choose a payment method');
   if (fulfillment === 'delivery' && !customer.address?.trim()) throw bad('Enter your delivery address');
-  const order = await orders.create({ userId: req.user?.id, customer, items, fulfillment, paymentMethod });
+  // Delivery orders must carry the pin the customer dropped on the map (used for rider directions).
+  let location = null;
+  if (fulfillment === 'delivery') {
+    const { lat, lng } = req.body.location || {};
+    const ok = typeof lat === 'number' && typeof lng === 'number' && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+    if (!ok) throw bad('Drop a pin on the map to mark your delivery location');
+    location = { lat, lng };
+  }
+  const order = await orders.create({ userId: req.user?.id, customer, items, fulfillment, paymentMethod, location });
   res.status(201).json(order);
 }));
 

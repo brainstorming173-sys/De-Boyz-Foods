@@ -4,6 +4,7 @@ import { Minus, Plus, Trash2, ShoppingBag, Smartphone } from 'lucide-react';
 import { api, money } from '../api.js';
 import { NETWORKS, guessNetwork, normalizePhone } from '../momo.js';
 import NetworkPicker from '../components/NetworkPicker.jsx';
+import LocationPicker from '../components/LocationPicker.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -14,8 +15,9 @@ export default function Cart() {
   const [settings, setSettings] = useState({ freeDeliveryThreshold: 200, deliveryFee: 15 });
   const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', note: '' });
   const [fulfillment, setFulfillment] = useState('delivery');
-  const [payment, setPayment] = useState('momo_now'); // momo_now = pay now, prompt sent to the phone
+  const [payment, setPayment] = useState('momo_now'); // momo_now = pay now: send money to our number, then confirm
   const [momoPhone, setMomoPhone] = useState('');
+  const [pin, setPin] = useState(null); // { lat, lng } dropped on the map (delivery only)
   const [picked, setPicked] = useState(null); // network the customer chose; falls back to a guess from the number
   const [networks, setNetworks] = useState({ mtn: true, telecel: true, airteltigo: true }); // id -> can pay online
   const [busy, setBusy] = useState(false);
@@ -45,6 +47,7 @@ export default function Cart() {
   async function submit(e) {
     e.preventDefault();
     setError('');
+    if (fulfillment === 'delivery' && !pin) return setError('Drop a pin on the map so our rider can find your exact location.');
     if (payment === 'momo_now') {
       if (!numberOk) return setError('Enter a valid mobile money number, e.g. 024 123 4567');
       if (!network) return setError('Choose your mobile money network');
@@ -55,10 +58,11 @@ export default function Cart() {
       const order = await api.placeOrder({
         items: cart.items.map((i) => ({ type: i.type, id: i.id, qty: i.qty })),
         customer: form, fulfillment, paymentMethod: payment,
+        location: fulfillment === 'delivery' ? pin : null,
       });
       cart.clear();
       if (payment === 'momo_now') {
-        // The pay page sends the MTN prompt, or shows where to send money (Telecel / AirtelTigo).
+        // The pay page shows where to send the money, then collects the transaction ID.
         nav(`/pay/${order.order_no}`, { state: { phone: payNumber, network } });
       } else {
         nav(`/order/${order.order_no}`);
@@ -132,11 +136,12 @@ export default function Cart() {
         {fulfillment === 'delivery' && (
           <div><label className="label" htmlFor="address">Delivery address</label><textarea id="address" className="field" rows={2} required value={form.address} onChange={set('address')} /></div>
         )}
+        {fulfillment === 'delivery' && <LocationPicker value={pin} onChange={setPin} />}
         <div><label className="label" htmlFor="note">Note for the kitchen (optional)</label><input id="note" className="field" value={form.note} onChange={set('note')} /></div>
 
         <div className="space-y-2">
           <p className="label">Payment</p>
-          {payOption('momo_now', 'Pay now with mobile money', 'MTN: approve a prompt on your phone. Telecel or AirtelTigo: send money to our number, then confirm.')}
+          {payOption('momo_now', 'Pay now with mobile money', 'MTN, Telecel or AirtelTigo: send money to our number, then confirm with your transaction ID.')}
           {payOption('cash', 'Cash on delivery', 'Pay the rider or at pickup.')}
           {payOption('momo', 'MoMo on delivery', 'Send MoMo to the rider when your order arrives.')}
         </div>

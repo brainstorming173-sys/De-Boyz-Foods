@@ -27,7 +27,7 @@ export default function OrderDone() {
 
       {unpaidOnline && (
         <div className="mt-6 rounded-xl bg-chili-soft px-4 py-3 text-sm text-chili">
-          {order.payment_txn_id && order.payment_network !== 'mtn' && order.payment_status === 'pending' ? (
+          {order.payment_txn_id && order.payment_status === 'pending' ? (
             <p>We're confirming your payment. This usually doesn't take long.</p>
           ) : (
             <>

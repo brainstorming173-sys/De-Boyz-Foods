@@ -23,6 +23,3 @@ export function guessNetwork(phone) {
   if (!p) return null;
   return NETWORK_IDS.find((id) => NETWORKS[id].prefixes.includes(p.slice(0, 3))) || null;
 }
-
-// MTN's API wants MSISDN format: country code + number, no plus or leading zero.
-export const toMsisdn = (phone) => '233' + normalizePhone(phone).slice(1);

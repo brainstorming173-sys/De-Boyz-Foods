@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { font-size: 14px; -webkit-text-size-adjust: 100%; }
+  @media (min-width: 640px) { html { font-size: 15px; } }
+  body { @apply min-w-0 overflow-x-hidden bg-paper font-sans text-ink antialiased; }
+  img { @apply max-w-full; }
+  /* iOS Safari zooms the whole page when a focused field is under 16px. */
+  @media (max-width: 639px) { input, select, textarea { font-size: 16px !important; } }
+  h1, h2, h3 { @apply font-display; }
+  :focus-visible { @apply outline-2 outline-offset-2 outline-leaf; outline-style: solid; }
+}
+
+@layer components {
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-green { @apply btn bg-leaf text-white hover:bg-leaf-dark; }
+  .btn-red { @apply btn bg-chili text-white hover:bg-chili-dark; }
+  .btn-ghost { @apply btn border border-black/10 bg-white text-ink hover:bg-black/5; }
+  .field { @apply w-full rounded-xl border border-black/15 bg-white px-4 py-2.5 text-sm placeholder:text-black/40; }
+  .label { @apply mb-1 block text-sm font-medium; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

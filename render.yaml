@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: deboyz-foods
+    runtime: node
+    plan: free
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 20
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: MOMO_ENV
+        value: production
+      - key: MOMO_SUBSCRIPTION_KEY
+        sync: false
+      - key: MOMO_API_USER
+        sync: false
+      - key: MOMO_API_KEY
+        sync: false
+      - key: MOMO_CALLBACK_URL
+        sync: false
+      - key: MANUAL_PAY_NUMBERS
+        value: 0538927692,0201753511
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: FREE_DELIVERY_THRESHOLD
+        value: 200
+      - key: DELIVERY_FEE
+        value: 15

@@ -248,6 +248,22 @@ export const orders = {
     const { rows } = await query('UPDATE orders SET payment_status = $2 WHERE id = $1 RETURNING *', [id, status]);
     return rows[0];
   },
+  // Atomically claim a one-time email so two requests can never send it twice.
+  async claimEmail(id, column) {
+    if (!['receipt_sent_at', 'owner_notified_at'].includes(column)) throw new Error('bad column');
+    const { rowCount } = await query(`UPDATE orders SET ${column} = NOW() WHERE id = $1 AND ${column} IS NULL`, [id]);
+    return rowCount > 0;
+  },
+  async releaseEmail(id, column) {
+    if (!['receipt_sent_at', 'owner_notified_at'].includes(column)) throw new Error('bad column');
+    await query(`UPDATE orders SET ${column} = NULL WHERE id = $1`, [id]);
+  },
+  async getById(id) {
+    const { rows } = await query('SELECT * FROM orders WHERE id = $1', [id]);
+    if (!rows[0]) return null;
+    const items = await query('SELECT * FROM order_items WHERE order_id = $1 ORDER BY id', [rows[0].id]);
+    return { ...rows[0], items: items.rows };
+  },
   async markPaidByNo(orderNo) {
     await query(`UPDATE orders SET payment_status = 'paid' WHERE order_no = $1`, [orderNo]);
   },

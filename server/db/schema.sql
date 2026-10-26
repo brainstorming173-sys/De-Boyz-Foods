@@ -106,3 +106,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_payment_txn ON orders (UPPER(paymen
 -- Exact delivery location the customer pinned on the map (rider directions). Safe to re-run.
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_lat DOUBLE PRECISION;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_lng DOUBLE PRECISION;
+
+-- Receipt emails: remember when the customer's receipt went out so it is never sent twice. Safe to re-run.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS receipt_sent_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS owner_notified_at TIMESTAMPTZ;

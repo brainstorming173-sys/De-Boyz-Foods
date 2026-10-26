@@ -18,6 +18,8 @@ export const config = {
   },
   resendKey: process.env.RESEND_API_KEY,
   emailFrom: process.env.EMAIL_FROM || 'De-Boyz Foods <onboarding@resend.dev>',
+  // Who gets the "New order" email. Comma-separated. Falls back to the admin login email.
+  orderNotifyEmails: (process.env.ORDER_NOTIFY_EMAIL || process.env.ADMIN_EMAIL || '').split(',').map((e) => e.trim()).filter(Boolean),
   // MTN MoMo, Telecel Cash and AirtelTigo Money: the customer sends the money to one of these
   // numbers, then submits the transaction ID. An admin confirms it in the dashboard.
   // Override with MANUAL_PAY_NUMBERS=0538927692,0201753511

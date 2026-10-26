@@ -3,6 +3,7 @@ import { orders, stats } from '../db/store.js';
 import { optionalAuth, requireAuth, requireAdmin } from '../middleware/auth.js';
 import { wrap, bad } from '../middleware/error.js';
 import { config } from '../config.js';
+import { onOrderPlaced, onOrderPaid } from '../services/orderEmails.js';
 
 const r = Router();
 const STATUSES = ['new', 'confirmed', 'preparing', 'out_for_delivery', 'completed', 'cancelled'];
@@ -26,6 +27,7 @@ r.post('/', optionalAuth, wrap(async (req, res) => {
   }
   const order = await orders.create({ userId: req.user?.id, customer, items, fulfillment, paymentMethod, location });
   res.status(201).json(order);
+  onOrderPlaced(order); // emails go out in the background
 }));
 
 r.get('/settings', (_req, res) => res.json(config.store));
@@ -56,6 +58,7 @@ r.patch('/:id/payment', requireAdmin, wrap(async (req, res) => {
   const row = await orders.setPaymentStatus(req.params.id, req.body.status);
   if (!row) throw bad('Order not found', 404);
   res.json(row);
+  if (row.payment_status === 'paid') onOrderPaid(row.id); // paid receipt to the customer (once)
 }));
 
 export default r;

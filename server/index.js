@@ -22,13 +22,16 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
-        connectSrc: ["'self'", 'https://nominatim.openstreetmap.org'],
+        scriptSrc: ["'self'", 'https://accounts.google.com/gsi/client'],
+        connectSrc: ["'self'", 'https://nominatim.openstreetmap.org', 'https://accounts.google.com/gsi/'],
+        frameSrc: ['https://accounts.google.com/gsi/'],
         imgSrc: ["'self'", 'data:', 'https:'],
-        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://accounts.google.com/gsi/style'],
         fontSrc: ["'self'", 'https://fonts.gstatic.com'],
       },
     },
+    // Google's sign-in popup needs this (the default blocks it).
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
   })
 );
 app.use(cors({ origin: config.isProd ? false : config.clientOrigin }));

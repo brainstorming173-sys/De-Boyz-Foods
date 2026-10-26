@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthShell from '../components/AuthShell.jsx';
+import GoogleButton from '../components/GoogleButton.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function Register() {
@@ -19,6 +20,7 @@ export default function Register() {
 
   return (
     <AuthShell title="Create account" subtitle="We'll email you a link to verify your address.">
+      <GoogleButton text="signup_with" onDone={() => nav('/', { replace: true })} onError={setError} />
       <form onSubmit={submit} className="space-y-4">
         <div><label className="label" htmlFor="n">Full name</label><input id="n" className="field" required value={f.name} onChange={set('name')} /></div>
         <div><label className="label" htmlFor="e">Email</label><input id="e" type="email" className="field" required value={f.email} onChange={set('email')} /></div>

@@ -33,6 +33,8 @@ export const api = {
   // auth
   register: (b) => request('/auth/register', { method: 'POST', body: b }),
   login: (b) => request('/auth/login', { method: 'POST', body: b }),
+  googleConfig: () => request('/auth/google-config'),
+  google: (credential) => request('/auth/google', { method: 'POST', body: { credential } }),
   me: () => request('/auth/me'),
   verifyEmail: (token) => request('/auth/verify-email', { method: 'POST', body: { token } }),
   forgotPassword: (email) => request('/auth/forgot-password', { method: 'POST', body: { email } }),

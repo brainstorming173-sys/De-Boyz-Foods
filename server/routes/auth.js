@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { users, sha256 } from '../db/store.js';
 import { signToken, requireAuth } from '../middleware/auth.js';
 import { wrap, bad } from '../middleware/error.js';
+import { config } from '../config.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.js';
 
 const r = Router();
@@ -28,11 +29,51 @@ r.post('/register', wrap(async (req, res) => {
 r.post('/login', wrap(async (req, res) => {
   const { email, password } = req.body;
   const row = email ? await users.findByEmail(email) : null;
+  if (row && !row.password_hash) throw bad('This account uses Google. Tap "Continue with Google" to sign in.', 401);
   if (!row || !(await bcrypt.compare(password || '', row.password_hash))) {
     throw bad('Wrong email or password', 401);
   }
-  const { password_hash, verify_token_hash, reset_token_hash, reset_expires_at, ...user } = row;
+  const { password_hash, verify_token_hash, reset_token_hash, reset_expires_at, google_id, ...user } = row;
   res.json({ token: signToken(user), user });
+}));
+
+// The browser asks which Google client to use, so the client ID is set once on the server only.
+r.get('/google-config', (_req, res) => res.json({ clientId: config.googleClientId || null }));
+
+// Google sign-in / sign-up. The browser sends the ID token Google gave it; we verify it with Google.
+r.post('/google', wrap(async (req, res) => {
+  if (!config.googleClientId) throw bad('Google sign-in is not set up yet', 503);
+  const credential = String(req.body.credential || '');
+  if (!credential) throw bad('Google sign-in failed. Please try again');
+
+  let info;
+  try {
+    const resp = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+    if (!resp.ok) throw new Error('rejected');
+    info = await resp.json();
+  } catch {
+    throw bad('Google sign-in failed. Please try again', 401);
+  }
+  const issuerOk = info.iss === 'accounts.google.com' || info.iss === 'https://accounts.google.com';
+  if (info.aud !== config.googleClientId || !issuerOk || Number(info.exp) * 1000 < Date.now()) {
+    throw bad('Google sign-in failed. Please try again', 401);
+  }
+  if (String(info.email_verified) !== 'true' || !emailOk(info.email)) {
+    throw bad('Your Google email is not verified', 401);
+  }
+
+  let user = await users.findByGoogleId(info.sub);
+  let created = false;
+  if (!user) {
+    const existing = await users.findByEmail(info.email);
+    if (existing) {
+      user = await users.linkGoogle(existing.id, info.sub);
+    } else {
+      user = await users.createFromGoogle({ name: (info.name || info.email.split('@')[0]).trim(), email: info.email, googleId: info.sub });
+      created = true;
+    }
+  }
+  res.status(created ? 201 : 200).json({ token: signToken(user), user });
 }));
 
 r.get('/me', requireAuth, wrap(async (req, res) => {

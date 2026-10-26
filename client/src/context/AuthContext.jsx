@@ -19,6 +19,7 @@ export function AuthProvider({ children }) {
     user, loading,
     isAdmin: user?.role === 'admin',
     login: async (email, password) => finish(await api.login({ email, password })),
+    google: async (credential) => finish(await api.google(credential)),
     register: async (data) => finish(await api.register(data)),
     logout: () => { tokenStore.clear(); setUser(null); },
   };

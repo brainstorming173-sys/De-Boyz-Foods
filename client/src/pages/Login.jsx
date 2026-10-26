@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import AuthShell from '../components/AuthShell.jsx';
+import GoogleButton from '../components/GoogleButton.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function Login() {
@@ -22,6 +23,7 @@ export default function Login() {
 
   return (
     <AuthShell title="Sign in" subtitle="Ordering doesn't need an account. Sign in to see past orders.">
+      <GoogleButton text="signin_with" onDone={(u) => nav(state?.from || (u.role === 'admin' ? '/admin' : '/'), { replace: true })} onError={setError} />
       <form onSubmit={submit} className="space-y-4">
         <div><label className="label" htmlFor="email">Email</label><input id="email" type="email" className="field" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
         <div><label className="label" htmlFor="pw">Password</label><input id="pw" type="password" className="field" required value={password} onChange={(e) => setPassword(e.target.value)} /></div>

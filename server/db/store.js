@@ -18,6 +18,31 @@ export const users = {
     );
     return rows[0];
   },
+  async findByGoogleId(googleId) {
+    const { rows } = await query(`SELECT ${publicUser} FROM users WHERE google_id = $1`, [googleId]);
+    return rows[0];
+  },
+  async createFromGoogle({ name, email, googleId }) {
+    const { rows } = await query(
+      `INSERT INTO users (name, email, password_hash, google_id, email_verified)
+       VALUES ($1, LOWER($2), NULL, $3, TRUE) RETURNING ${publicUser}`,
+      [name, email, googleId]
+    );
+    return rows[0];
+  },
+  // Links Google to an existing email account. Google has verified the address, so it becomes verified.
+  // If the account's email was never verified, someone else may have registered it first, so the old
+  // password and any pending tokens are wiped: only the real owner (via Google) can get in.
+  async linkGoogle(id, googleId) {
+    const { rows } = await query(
+      `UPDATE users SET google_id = $2,
+         password_hash = CASE WHEN email_verified THEN password_hash ELSE NULL END,
+         email_verified = TRUE, verify_token_hash = NULL, reset_token_hash = NULL, reset_expires_at = NULL
+       WHERE id = $1 RETURNING ${publicUser}`,
+      [id, googleId]
+    );
+    return rows[0];
+  },
   async findByEmail(email) {
     const { rows } = await query('SELECT * FROM users WHERE email = LOWER($1)', [email]);
     return rows[0];

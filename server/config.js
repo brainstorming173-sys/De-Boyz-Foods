@@ -16,6 +16,7 @@ export const config = {
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
   },
+  googleClientId: process.env.GOOGLE_CLIENT_ID || '',
   resendKey: process.env.RESEND_API_KEY,
   emailFrom: process.env.EMAIL_FROM || 'De-Boyz Foods <onboarding@resend.dev>',
   // Who gets the "New order" email. Comma-separated. Falls back to the admin login email.

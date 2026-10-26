@@ -110,3 +110,8 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_lng DOUBLE PRECISION;
 -- Receipt emails: remember when the customer's receipt went out so it is never sent twice. Safe to re-run.
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS receipt_sent_at TIMESTAMPTZ;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS owner_notified_at TIMESTAMPTZ;
+
+-- Google sign-in: accounts created with Google have no password. Safe to re-run.
+ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users (google_id) WHERE google_id IS NOT NULL;

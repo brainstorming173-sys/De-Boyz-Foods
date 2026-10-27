@@ -179,7 +179,7 @@ const orderNo = () => 'DB-' + crypto.randomBytes(3).toString('hex').toUpperCase(
 
 export const orders = {
   // Prices are always read from the database, never trusted from the client.
-  async create({ userId, customer, items, fulfillment, paymentMethod, location }) {
+  async create({ userId, customer, items, fulfillment, paymentMethod, location, deliveryZone }) {
     return tx(async (c) => {
       const priced = [];
       for (const it of items) {
@@ -201,8 +201,17 @@ export const orders = {
       }
 
       const subtotal = priced.reduce((s, i) => s + i.price * i.qty, 0);
-      const deliveryFee =
-        fulfillment === 'pickup' || subtotal >= config.store.freeDeliveryThreshold ? 0 : config.store.deliveryFee;
+      // Any groceries in the order: constant fee. Meals only: the fee for the chosen area.
+      let deliveryFee = 0;
+      if (fulfillment === 'delivery') {
+        if (priced.some((i) => i.type === 'product')) {
+          deliveryFee = config.store.groceryDeliveryFee;
+        } else {
+          const zone = config.store.mealZones.find((z) => z.id === deliveryZone);
+          if (!zone) throw Object.assign(new Error('Choose your delivery area'), { status: 400 });
+          deliveryFee = zone.fee;
+        }
+      }
       const total = subtotal + deliveryFee;
       const no = orderNo();
 

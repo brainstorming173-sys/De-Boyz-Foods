@@ -39,7 +39,3 @@ services:
         value: 0538927692,0201753511
       - key: CLIENT_ORIGIN
         sync: false
-      - key: FREE_DELIVERY_THRESHOLD
-        value: 200
-      - key: DELIVERY_FEE
-        value: 15

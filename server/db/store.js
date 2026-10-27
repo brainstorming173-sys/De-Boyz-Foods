@@ -140,7 +140,7 @@ export const products = {
 export const meals = {
   async listToday() {
     const { rows } = await query(
-      `SELECT * FROM meals WHERE available_date = CURRENT_DATE AND is_available = TRUE ORDER BY created_at DESC`
+      `SELECT * FROM meals WHERE is_available = TRUE AND (available_date = CURRENT_DATE OR (carry_over = TRUE AND available_date < CURRENT_DATE)) ORDER BY created_at DESC`
     );
     return rows;
   },
@@ -150,9 +150,9 @@ export const meals = {
   },
   async create(d) {
     const { rows } = await query(
-      `INSERT INTO meals (name, description, price, image_url, available_date, is_available)
-       VALUES ($1,$2,$3,$4,COALESCE($5, CURRENT_DATE),COALESCE($6, TRUE)) RETURNING *`,
-      [d.name, d.description || null, d.price, d.image_url || null, d.available_date, d.is_available]
+      `INSERT INTO meals (name, description, price, image_url, available_date, is_available, carry_over)
+       VALUES ($1,$2,$3,$4,COALESCE($5, CURRENT_DATE),COALESCE($6, TRUE),COALESCE($7, FALSE)) RETURNING *`,
+      [d.name, d.description || null, d.price, d.image_url || null, d.available_date, d.is_available, d.carry_over]
     );
     return rows[0];
   },
@@ -161,9 +161,10 @@ export const meals = {
       `UPDATE meals SET
          name = COALESCE($2, name), description = COALESCE($3, description),
          price = COALESCE($4, price), image_url = COALESCE($5, image_url),
-         available_date = COALESCE($6, available_date), is_available = COALESCE($7, is_available)
+         available_date = COALESCE($6, available_date), is_available = COALESCE($7, is_available),
+         carry_over = COALESCE($8, carry_over)
        WHERE id = $1 RETURNING *`,
-      [id, d.name ?? null, d.description ?? null, d.price ?? null, d.image_url ?? null, d.available_date ?? null, d.is_available ?? null]
+      [id, d.name ?? null, d.description ?? null, d.price ?? null, d.image_url ?? null, d.available_date ?? null, d.is_available ?? null, d.carry_over ?? null]
     );
     return rows[0];
   },
@@ -189,7 +190,7 @@ export const orders = {
           priced.push({ type: 'product', id: rows[0].id, name: rows[0].name, price: Number(rows[0].price), qty });
         } else if (it.type === 'meal') {
           const { rows } = await c.query(
-            'SELECT id, name, price FROM meals WHERE id = $1 AND is_available = TRUE AND available_date = CURRENT_DATE',
+            'SELECT id, name, price FROM meals WHERE id = $1 AND is_available = TRUE AND (available_date = CURRENT_DATE OR (carry_over = TRUE AND available_date < CURRENT_DATE))',
             [it.id]
           );
           if (!rows[0]) throw Object.assign(new Error('A meal in your cart is no longer available today'), { status: 400 });
@@ -298,6 +299,21 @@ export const orders = {
 };
 
 export const stats = {
+  // Registered accounts: how many signed up today, in total, and per day for the last 14 days.
+  async users() {
+    const { rows } = await query(
+      `SELECT COUNT(*) AS total_users,
+              COUNT(*) FILTER (WHERE created_at::date = CURRENT_DATE) AS signups_today
+       FROM users`
+    );
+    const daily = await query(
+      `SELECT to_char(d::date, 'YYYY-MM-DD') AS day, COUNT(u.id)::int AS signups
+       FROM generate_series(CURRENT_DATE - 13, CURRENT_DATE, '1 day') AS d
+       LEFT JOIN users u ON u.created_at::date = d::date
+       GROUP BY d ORDER BY d DESC`
+    );
+    return { total_users: Number(rows[0].total_users), signups_today: Number(rows[0].signups_today), daily: daily.rows };
+  },
   async overview() {
     const { rows } = await query(
       `SELECT

@@ -201,15 +201,14 @@ export const orders = {
       }
 
       const subtotal = priced.reduce((s, i) => s + i.price * i.qty, 0);
-      // Any groceries in the order: constant fee. Meals only: the fee for the chosen area.
+      // Groceries add the constant fee; meals add the fee for the chosen area. A mixed order pays both.
       let deliveryFee = 0;
       if (fulfillment === 'delivery') {
-        if (priced.some((i) => i.type === 'product')) {
-          deliveryFee = config.store.groceryDeliveryFee;
-        } else {
+        if (priced.some((i) => i.type === 'product')) deliveryFee += config.store.groceryDeliveryFee;
+        if (priced.some((i) => i.type === 'meal')) {
           const zone = config.store.mealZones.find((z) => z.id === deliveryZone);
           if (!zone) throw Object.assign(new Error('Choose your delivery area'), { status: 400 });
-          deliveryFee = zone.fee;
+          deliveryFee += zone.fee;
         }
       }
       const total = subtotal + deliveryFee;

@@ -77,7 +77,7 @@ export default function Dashboard() {
 
       {stats && (
         <div className="mt-5 grid grid-cols-2 gap-2 sm:mt-6 sm:gap-4 md:grid-cols-5">
-          {[['Orders today', stats.orders_today], ['Revenue today', money(stats.revenue_today)], ['New orders', stats.new_orders], ['Signups today', stats.signups_today], ['Total users', stats.total_users]].map(([k, v]) => (
+          {[['Orders today', stats.orders_today], ['Revenue today', money(stats.revenue_today)], ['New orders', stats.new_orders], ['Signups this month', stats.signups_month], ['Total users', stats.total_users]].map(([k, v]) => (
             <div key={k} className="min-w-0 rounded-2xl border border-black/5 bg-white p-3 sm:p-5">
               <p className="text-xs leading-tight text-black/60 sm:text-sm">{k}</p><p className="mt-1 break-words font-display text-lg font-bold leading-tight sm:text-3xl">{v}</p>
             </div>
@@ -85,7 +85,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="-mx-3 mt-6 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:mt-8 sm:px-0">{tabBtn('orders', 'Orders')}{tabBtn('meals', 'Today\'s meals')}{tabBtn('products', 'Groceries')}{tabBtn('users', 'Signups')}</div>
+      <div className="-mx-3 mt-6 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:mt-8 sm:px-0">{tabBtn('orders', 'Orders')}{tabBtn('meals', 'Today\'s meals')}{tabBtn('products', 'Groceries')}</div>
       {error && <p role="alert" className="mt-4 text-chili">{error}</p>}
 
       {tab === 'orders' && (
@@ -155,19 +155,6 @@ export default function Dashboard() {
           </table>
         </div>
         </>
-      )}
-
-      {tab === 'users' && stats && (
-        <div className="mt-5 overflow-hidden rounded-2xl border border-black/5 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-black/5 text-black/60"><tr><th className="p-4">Day</th><th className="p-4">New signups</th></tr></thead>
-            <tbody className="divide-y divide-black/5">
-              {stats.daily.map((d) => (
-                <tr key={d.day}><td className="p-4">{new Date(`${d.day}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</td><td className="p-4 font-semibold">{d.signups}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       )}
 
       {tab === 'meals' && <MealsManager setError={setError} />}

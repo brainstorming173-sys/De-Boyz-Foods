@@ -44,7 +44,7 @@ r.get('/track/:orderNo', wrap(async (req, res) => {
 
 /* ---- admin ---- */
 r.get('/', requireAdmin, wrap(async (req, res) => res.json(await orders.listAll({ status: req.query.status }))));
-r.get('/stats', requireAdmin, wrap(async (_req, res) => res.json(await stats.overview())));
+r.get('/stats', requireAdmin, wrap(async (_req, res) => res.json({ ...(await stats.overview()), ...(await stats.users()) })));
 r.patch('/:id/status', requireAdmin, wrap(async (req, res) => {
   if (!STATUSES.includes(req.body.status)) throw bad('Invalid status');
   const row = await orders.setStatus(req.params.id, req.body.status);

@@ -28,8 +28,13 @@ export const config = {
     numbers: (process.env.MANUAL_PAY_NUMBERS || '0538927692,0201753511').split(',').map((n) => n.trim()).filter(Boolean),
   },
   store: {
-    freeDeliveryThreshold: num(process.env.FREE_DELIVERY_THRESHOLD, 200),
-    deliveryFee: num(process.env.DELIVERY_FEE, 15),
+    // Meals: the fee depends on the delivery area the customer picks. Groceries: one constant fee.
+    mealZones: [
+      { id: 'j1-5', label: 'Junction 1 to 5', fee: 5 },
+      { id: 'j6', label: 'Junction 6 and environs', fee: 8 },
+      { id: 'other', label: 'Any other location', fee: 15 },
+    ],
+    groceryDeliveryFee: 20,
     defaultArea: process.env.DEFAULT_DELIVERY_AREA || 'Koforidua',
   },
 };

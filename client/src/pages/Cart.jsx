@@ -34,9 +34,11 @@ export default function Cart() {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const hasGroceries = cart.items.some((i) => i.type === 'product');
-  const needsZone = fulfillment === 'delivery' && !hasGroceries; // meals-only: fee depends on the area
+  const hasMeals = cart.items.some((i) => i.type === 'meal');
+  const needsZone = fulfillment === 'delivery' && hasMeals; // meals: fee depends on the area
   const zoneRow = (settings.mealZones || []).find((z) => z.id === zone);
-  const fee = fulfillment === 'pickup' ? 0 : hasGroceries ? settings.groceryDeliveryFee : zoneRow ? zoneRow.fee : 0;
+  // Groceries add the constant fee, meals add the area fee; a mixed order pays both.
+  const fee = fulfillment === 'pickup' ? 0 : (hasGroceries ? settings.groceryDeliveryFee : 0) + (hasMeals && zoneRow ? zoneRow.fee : 0);
   const total = cart.subtotal + fee;
 
   const payNumber = momoPhone || form.phone;

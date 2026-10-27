@@ -77,7 +77,7 @@ const Pill = ({ children, tone }) => (
 );
 
 /* ---------- Today's meals ---------- */
-const blankMeal = () => ({ name: '', description: '', price: '', image_url: '', available_date: todayStr(), is_available: true });
+const blankMeal = () => ({ name: '', description: '', price: '', image_url: '', available_date: todayStr(), is_available: true, carry_over: false });
 
 export function MealsManager({ setError }) {
   const [list, setList] = useState(null);
@@ -92,12 +92,20 @@ export function MealsManager({ setError }) {
 
   async function save(e) {
     e.preventDefault(); setError(''); setSaving(true);
-    const body = { name: form.name.trim(), description: form.description.trim(), price: form.price, image_url: form.image_url, available_date: form.available_date, is_available: form.is_available };
+    const body = { name: form.name.trim(), description: form.description.trim(), price: form.price, image_url: form.image_url, available_date: form.available_date, is_available: form.is_available, carry_over: form.carry_over };
     try {
       form.id ? await api.admin.updateMeal(form.id, body) : await api.admin.createMeal(body);
       setForm(null); await load();
     } catch (err) { setError(err.message); }
     finally { setSaving(false); }
+  }
+
+  // One tap: keep this meal on the menu every day until it is switched off again.
+  async function toggleCarry(m) {
+    try {
+      const row = await api.admin.updateMeal(m.id, { carry_over: !m.carry_over });
+      setList((cur) => cur.map((x) => (x.id === m.id ? { ...x, carry_over: row.carry_over } : x)));
+    } catch (err) { setError(err.message); }
   }
 
   async function remove(m) {
@@ -119,7 +127,10 @@ export function MealsManager({ setError }) {
             <div><label className="label" htmlFor="m-name">Meal name</label><input id="m-name" required className="field" value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Jollof rice with chicken" /></div>
             <div><label className="label" htmlFor="m-price">Price (GH₵)</label><input id="m-price" required type="number" min="0" step="0.01" className="field" value={form.price} onChange={(e) => set('price', e.target.value)} /></div>
             <div><label className="label" htmlFor="m-date">Available on</label><input id="m-date" required type="date" className="field" value={form.available_date} onChange={(e) => set('available_date', e.target.value)} /></div>
-            <div className="flex items-end pb-2"><Toggle checked={form.is_available} onChange={(v) => set('is_available', v)} label="Available to order" /></div>
+            <div className="flex flex-col justify-end gap-3 pb-2">
+              <Toggle checked={form.is_available} onChange={(v) => set('is_available', v)} label="Available to order" />
+              <Toggle checked={!!form.carry_over} onChange={(v) => set('carry_over', v)} label="Still available the following days" />
+            </div>
           </div>
           <div><label className="label" htmlFor="m-desc">Description (optional)</label><textarea id="m-desc" rows={2} className="field" value={form.description} onChange={(e) => set('description', e.target.value)} /></div>
           <ImageField value={form.image_url} onChange={(v) => set('image_url', v)} onError={setError} />
@@ -135,11 +146,17 @@ export function MealsManager({ setError }) {
         {list?.length === 0 && <li className="p-6 text-black/60">No meals yet. Add today's menu above.</li>}
         {list?.map((m) => {
           const date = String(m.available_date).slice(0, 10);
+          const live = m.is_available && (date === today || (m.carry_over && date < today));
           return (
             <li key={m.id}>
               <Row item={m} onEdit={() => edit(m)} onDelete={() => remove(m)}
-                sub={date === today ? 'Today' : date}
-                badge={!m.is_available ? <Pill tone="bad">Hidden</Pill> : date === today ? <Pill>Live today</Pill> : null} />
+                sub={date === today ? 'Today' : m.carry_over && date < today ? `Posted ${date}` : date}
+                badge={!m.is_available ? <Pill tone="bad">Hidden</Pill> : live ? <Pill>Live today</Pill> : null} />
+              <div className="-mt-1 pb-3 pl-[72px] pr-3 sm:-mt-2 sm:pl-[88px]">
+                <button onClick={() => toggleCarry(m)} className="py-1 text-xs font-semibold text-leaf hover:underline">
+                  {m.carry_over ? 'Still available daily: ON. Tap to stop after today' : 'Keep available the following days'}
+                </button>
+              </div>
             </li>
           );
         })}

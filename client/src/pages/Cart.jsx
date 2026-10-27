@@ -12,7 +12,8 @@ export default function Cart() {
   const cart = useCart();
   const { user } = useAuth();
   const nav = useNavigate();
-  const [settings, setSettings] = useState({ freeDeliveryThreshold: 200, deliveryFee: 15 });
+  const [settings, setSettings] = useState({ mealZones: [], groceryDeliveryFee: 20 });
+  const [zone, setZone] = useState(''); // delivery area for meal-only orders
   const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', note: '' });
   const [fulfillment, setFulfillment] = useState('delivery');
   const [payment, setPayment] = useState('momo_now'); // momo_now = pay now: send money to our number, then confirm
@@ -32,9 +33,11 @@ export default function Cart() {
   }, [user]);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const fee = fulfillment === 'pickup' || cart.subtotal >= settings.freeDeliveryThreshold ? 0 : settings.deliveryFee;
+  const hasGroceries = cart.items.some((i) => i.type === 'product');
+  const needsZone = fulfillment === 'delivery' && !hasGroceries; // meals-only: fee depends on the area
+  const zoneRow = (settings.mealZones || []).find((z) => z.id === zone);
+  const fee = fulfillment === 'pickup' ? 0 : hasGroceries ? settings.groceryDeliveryFee : zoneRow ? zoneRow.fee : 0;
   const total = cart.subtotal + fee;
-  const toFree = settings.freeDeliveryThreshold - cart.subtotal;
 
   const payNumber = momoPhone || form.phone;
   const numberOk = !!normalizePhone(payNumber);
@@ -47,6 +50,7 @@ export default function Cart() {
   async function submit(e) {
     e.preventDefault();
     setError('');
+    if (needsZone && !zoneRow) return setError('Choose your delivery area so we can work out the delivery fee.');
     if (fulfillment === 'delivery' && !pin) return setError('Drop a pin on the map so our rider can find your exact location.');
     if (payment === 'momo_now') {
       if (!numberOk) return setError('Enter a valid mobile money number, e.g. 024 123 4567');
@@ -57,7 +61,7 @@ export default function Cart() {
     try {
       const order = await api.placeOrder({
         items: cart.items.map((i) => ({ type: i.type, id: i.id, qty: i.qty })),
-        customer: form, fulfillment, paymentMethod: payment,
+        customer: form, fulfillment, paymentMethod: payment, deliveryZone: needsZone ? zone : null,
         location: fulfillment === 'delivery' ? pin : null,
       });
       cart.clear();
@@ -136,6 +140,15 @@ export default function Cart() {
         {fulfillment === 'delivery' && (
           <div><label className="label" htmlFor="address">Delivery address</label><textarea id="address" className="field" rows={2} required value={form.address} onChange={set('address')} /></div>
         )}
+        {needsZone && (
+          <div>
+            <label className="label" htmlFor="zone">Delivery area</label>
+            <select id="zone" className="field" required value={zone} onChange={(e) => setZone(e.target.value)}>
+              <option value="">Choose your area</option>
+              {(settings.mealZones || []).map((z) => <option key={z.id} value={z.id}>{z.label} ({money(z.fee)})</option>)}
+            </select>
+          </div>
+        )}
         {fulfillment === 'delivery' && <LocationPicker value={pin} onChange={setPin} />}
         <div><label className="label" htmlFor="note">Note for the kitchen (optional)</label><input id="note" className="field" value={form.note} onChange={set('note')} /></div>
 
@@ -172,12 +185,9 @@ export default function Cart() {
 
         <dl className="space-y-1 border-t border-black/5 pt-4 text-sm">
           <div className="flex justify-between"><dt className="text-black/60">Subtotal</dt><dd>{money(cart.subtotal)}</dd></div>
-          <div className="flex justify-between"><dt className="text-black/60">Delivery</dt><dd>{fee === 0 ? 'Free' : money(fee)}</dd></div>
+          <div className="flex justify-between"><dt className="text-black/60">Delivery</dt><dd>{fulfillment === 'pickup' ? 'Free' : needsZone && !zoneRow ? 'Choose area' : money(fee)}</dd></div>
           <div className="flex justify-between pt-2 font-display text-lg font-bold"><dt>Total</dt><dd>{money(total)}</dd></div>
         </dl>
-        {fulfillment === 'delivery' && toFree > 0 && (
-          <p className="rounded-xl bg-leaf-soft px-3 py-2 text-sm text-leaf">Add {money(toFree)} more for free delivery.</p>
-        )}
 
         {error && <p role="alert" className="text-sm text-chili">{error}</p>}
         <button className="btn-green w-full py-3.5 text-base" disabled={busy}>

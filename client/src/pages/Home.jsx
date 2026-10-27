@@ -8,10 +8,10 @@ import ItemCard from '../components/ItemCard.jsx';
 function HeroCard({ tone, badge, BadgeIcon, title, text, cta, to, image }) {
   const green = tone === 'green';
   return (
-    <section className={`relative flex min-h-[14rem] flex-col justify-between overflow-hidden rounded-3xl p-5 sm:min-h-[16rem] sm:p-6 text-white shadow-card ${green ? 'bg-leaf' : 'bg-chili'}`}>
+    <section className={`relative flex min-h-[14rem] flex-col justify-start sm:justify-between overflow-hidden rounded-3xl p-5 sm:min-h-[16rem] sm:p-6 text-white shadow-card ${green ? 'bg-leaf' : 'bg-chili'}`}>
       {/* Drop photos at client/public/images/groceries.jpg and food.jpg; the card still looks right without them. */}
       <img src={image} alt="" onError={(e) => (e.currentTarget.style.display = 'none')}
-        className="absolute right-0 top-0 hidden h-[62%] w-[34%] object-cover sm:block" />
+        className="relative mb-4 h-36 w-full rounded-2xl object-cover sm:absolute sm:right-0 sm:top-0 sm:mb-0 sm:h-[62%] sm:w-[34%] sm:rounded-none" />
       <div className="relative sm:max-w-[60%]">
         <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
           <BadgeIcon className="h-4 w-4" /> {badge}
@@ -28,7 +28,7 @@ function HeroCard({ tone, badge, BadgeIcon, title, text, cta, to, image }) {
 
 export default function Home() {
   const [meals, setMeals] = useState(null);
-  const [settings, setSettings] = useState({ freeDeliveryThreshold: 200 });
+  const [settings, setSettings] = useState({ mealZones: [], groceryDeliveryFee: 20 });
 
   useEffect(() => {
     api.mealsToday().then((m) => setMeals(Array.isArray(m) ? m : [])).catch(() => setMeals([]));
@@ -36,7 +36,7 @@ export default function Home() {
   }, []);
 
   const trust = [
-    { Icon: Truck, title: 'Free Delivery', text: `On orders over ${money(settings.freeDeliveryThreshold)}` },
+    { Icon: Truck, title: 'Fast Delivery', text: `Meals from ${money(Math.min(...(settings.mealZones.length ? settings.mealZones.map((z) => z.fee) : [5])))}` },
     { Icon: Wallet, title: 'Pay on Delivery', text: 'MoMo or cash' },
     { Icon: Clock, title: 'Fresh Daily', text: 'Meals cooked today' },
     { Icon: MousePointerClick, title: 'Easy Ordering', text: 'No account needed' },

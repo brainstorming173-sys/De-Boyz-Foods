@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Loading from '../components/Loading.jsx';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Leaf, Flame, Truck, Wallet, Clock, MousePointerClick } from 'lucide-react';
 import { api, money } from '../api.js';
@@ -66,7 +67,7 @@ export default function Home() {
         </div>
         <div className="mt-5">
           {meals === null ? (
-            <p className="rounded-3xl border border-dashed border-black/10 bg-white px-6 py-12 text-center text-black/50">Loading today's meals...</p>
+            <Loading message="Loading today's meals..." className="rounded-3xl border border-dashed border-black/10 bg-white px-6 py-12" />
           ) : meals.length === 0 ? (
             <p className="rounded-3xl border border-dashed border-black/10 bg-white px-6 py-12 text-center text-black/60">
               No meals posted for today yet. Please check back later.

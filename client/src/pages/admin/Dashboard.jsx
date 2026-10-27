@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Loading from '../../components/Loading.jsx';
 import { Navigation } from 'lucide-react';
 import { api, money } from '../../api.js';
 import { MealsManager, ProductsManager } from './CatalogManager.jsx';
@@ -91,7 +92,7 @@ export default function Dashboard() {
         <>
         {/* Phones: one card per order */}
         <ul className="mt-5 space-y-3 md:hidden">
-          {orders === null && <li className="rounded-2xl border border-black/5 bg-white p-5 text-black/50">Loading orders...</li>}
+          {orders === null && <li className="rounded-2xl border border-black/5 bg-white"><Loading message="Loading orders..." className="py-8" /></li>}
           {orders?.length === 0 && <li className="rounded-2xl border border-black/5 bg-white p-5 text-black/60">No orders yet.</li>}
           {orders?.map((o) => (
             <li key={o.id} className="rounded-2xl border border-black/5 bg-white p-4">
@@ -134,7 +135,7 @@ export default function Dashboard() {
               <tr><th className="p-4">Order</th><th className="p-4">Customer</th><th className="p-4">Items</th><th className="p-4">Total</th><th className="p-4">Payment</th><th className="p-4">Status</th></tr>
             </thead>
             <tbody className="divide-y divide-black/5">
-              {orders === null && <tr><td className="p-6 text-black/50" colSpan={6}>Loading orders...</td></tr>}
+              {orders === null && <tr><td colSpan={6}><Loading message="Loading orders..." className="py-8" /></td></tr>}
               {orders?.length === 0 && <tr><td className="p-6 text-black/60" colSpan={6}>No orders yet.</td></tr>}
               {orders?.map((o) => (
                 <tr key={o.id} className="align-top">

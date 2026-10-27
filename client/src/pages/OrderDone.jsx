@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Loading from '../components/Loading.jsx';
 import { Link, useParams } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { api, money } from '../api.js';
@@ -13,7 +14,7 @@ export default function OrderDone() {
   useEffect(() => { api.trackOrder(orderNo).then(setOrder).catch((e) => setError(e.message)); }, [orderNo]);
 
   if (error) return <p className="p-16 text-center text-chili">{error}</p>;
-  if (!order) return <p className="p-16 text-center text-black/50">Loading your order...</p>;
+  if (!order) return <Loading message="Loading your order..." />;
 
   const unpaidOnline = order.payment_method === 'momo_now' && order.payment_status !== 'paid';
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import AuthShell from '../components/AuthShell.jsx';
 import { api } from '../api.js';
+import Loading from '../components/Loading.jsx';
 
 export default function VerifyEmail() {
   const [params] = useSearchParams();
@@ -15,8 +16,14 @@ export default function VerifyEmail() {
 
   return (
     <AuthShell title="Email verification">
-      <p className={state.status === 'error' ? 'text-chili' : ''}>{state.status === 'loading' ? 'Checking your link...' : state.message}</p>
-      <Link to="/" className="btn-green mt-4">Go to home</Link>
+      {state.status === 'loading' ? (
+        <Loading message="Checking your link..." className="py-6" />
+      ) : (
+        <>
+          <p className={state.status === 'error' ? 'text-chili' : ''}>{state.message}</p>
+          <Link to="/" className="btn-green mt-4">Go to home</Link>
+        </>
+      )}
     </AuthShell>
   );
 }

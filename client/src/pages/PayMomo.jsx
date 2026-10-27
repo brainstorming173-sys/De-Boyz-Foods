@@ -4,6 +4,7 @@ import { Smartphone, CheckCircle2, XCircle, Loader2, Copy, Check } from 'lucide-
 import { api, money } from '../api.js';
 import { NETWORKS, guessNetwork, normalizePhone } from '../momo.js';
 import NetworkPicker from '../components/NetworkPicker.jsx';
+import Loading from '../components/Loading.jsx';
 
 const POLL_MS = 4000;
 
@@ -102,7 +103,7 @@ export default function PayMomo() {
 
   const amount = order ? money(order.total) : '';
 
-  if (stage === 'loading') return <Card><Loader2 className="mx-auto h-8 w-8 animate-spin text-leaf" /></Card>;
+  if (stage === 'loading') return <Card><Loading message="Loading your payment..." className="py-4" /></Card>;
 
   if (stage === 'paid') return (
     <Card>

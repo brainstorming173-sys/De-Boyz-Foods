@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, UtensilsCrossed } from 'lucide-react';
 import { api } from '../api.js';
 import ItemCard from '../components/ItemCard.jsx';
+import Loading from '../components/Loading.jsx';
 
 export default function Food() {
   const [meals, setMeals] = useState(null);
@@ -32,7 +33,7 @@ export default function Food() {
 
       <div className="mt-6">
         {meals === null ? (
-          <p className="text-black/50">Loading today's meals...</p>
+          <Loading message="Loading today's meals..." />
         ) : shown.length === 0 ? (
           <div className="flex flex-col items-center rounded-3xl border border-dashed border-black/10 bg-white px-6 py-16 text-center">
             <UtensilsCrossed className="h-12 w-12 text-black/55" strokeWidth={1.5} />

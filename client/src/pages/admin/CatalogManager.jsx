@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Loading from '../../components/Loading.jsx';
 import { Pencil, Trash2, Plus, ImagePlus, X } from 'lucide-react';
 import { api, money } from '../../api.js';
 
@@ -130,7 +131,7 @@ export function MealsManager({ setError }) {
       )}
 
       <ul className="mt-6 divide-y divide-black/5 overflow-hidden rounded-2xl border border-black/5 bg-white">
-        {list === null && <li className="p-6 text-black/50">Loading meals...</li>}
+        {list === null && <li><Loading message="Loading meals..." className="py-8" /></li>}
         {list?.length === 0 && <li className="p-6 text-black/60">No meals yet. Add today's menu above.</li>}
         {list?.map((m) => {
           const date = String(m.available_date).slice(0, 10);
@@ -226,7 +227,7 @@ export function ProductsManager({ setError }) {
       )}
 
       <ul className="mt-6 divide-y divide-black/5 overflow-hidden rounded-2xl border border-black/5 bg-white">
-        {list === null && <li className="p-6 text-black/50">Loading groceries...</li>}
+        {list === null && <li><Loading message="Loading groceries..." className="py-8" /></li>}
         {list?.length === 0 && <li className="p-6 text-black/60">No grocery items yet. Add your first one above.</li>}
         {list?.map((p) => (
           <li key={p.id}>

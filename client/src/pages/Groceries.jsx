@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Loading from '../components/Loading.jsx';
 import { useSearchParams } from 'react-router-dom';
 import { SlidersHorizontal, Check, Search } from 'lucide-react';
 import { api } from '../api.js';
@@ -77,7 +78,7 @@ export default function Groceries() {
       <div className="mt-6">
         {error && <p role="alert" className="mb-4 text-chili">{error}</p>}
         {items === null ? (
-          <p className="text-black/50">Loading groceries...</p>
+          <Loading message="Loading groceries..." />
         ) : items.length === 0 ? (
           <p className="rounded-3xl border border-dashed border-black/10 bg-white px-6 py-12 text-center text-black/60">
             Nothing here yet. Try another category or search.

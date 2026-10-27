@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import Navbar from './components/Navbar.jsx';
+import Loading from './components/Loading.jsx';
 import Footer from './components/Footer.jsx';
 import Home from './pages/Home.jsx';
 import Groceries from './pages/Groceries.jsx';
@@ -24,7 +25,7 @@ function ScrollTop() {
 
 function AdminOnly({ children }) {
   const { user, loading, isAdmin } = useAuth();
-  if (loading) return <p className="p-10 text-center text-black/60">Loading...</p>;
+  if (loading) return <Loading message="Checking your account..." />;
   if (!user) return <Navigate to="/login" replace state={{ from: '/admin' }} />;
   if (!isAdmin) return <Navigate to="/" replace />;
   return children;

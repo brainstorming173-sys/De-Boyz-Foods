@@ -52,7 +52,14 @@ export default function Dashboard() {
   };
 
   // Every mobile money payment is confirmed by hand: shows the customer's transaction ID and the confirm / reject buttons.
-  const manualPay = (o) => o.payment_method === 'momo_now' && o.payment_network && (
+  const manualPay = (o) => o.payment_method !== 'momo_now' ? (
+    // Cash / MoMo on delivery: mark it paid once the customer has paid the rider or at pickup.
+    <div className="mt-2 text-xs">
+      {o.payment_status === 'paid'
+        ? <button onClick={() => setPay(o.id, 'pending')} className="text-black/50 underline">Undo</button>
+        : <button onClick={() => setPay(o.id, 'paid')} className="rounded-full bg-leaf px-3 py-1 font-semibold text-white">Mark paid</button>}
+    </div>
+  ) : o.payment_network && (
     <div className="mt-2 space-y-1 text-xs">
       {o.payment_txn_id
         ? <p className="break-all text-black/70">Txn ID: <strong>{o.payment_txn_id}</strong><br />From: {o.payment_sender}</p>

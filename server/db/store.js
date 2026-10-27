@@ -299,20 +299,14 @@ export const orders = {
 };
 
 export const stats = {
-  // Registered accounts: how many signed up today, in total, and per day for the last 14 days.
+  // Registered accounts: total, and how many signed up so far this month.
   async users() {
     const { rows } = await query(
       `SELECT COUNT(*) AS total_users,
-              COUNT(*) FILTER (WHERE created_at::date = CURRENT_DATE) AS signups_today
+              COUNT(*) FILTER (WHERE date_trunc('month', created_at) = date_trunc('month', NOW())) AS signups_month
        FROM users`
     );
-    const daily = await query(
-      `SELECT to_char(d::date, 'YYYY-MM-DD') AS day, COUNT(u.id)::int AS signups
-       FROM generate_series(CURRENT_DATE - 13, CURRENT_DATE, '1 day') AS d
-       LEFT JOIN users u ON u.created_at::date = d::date
-       GROUP BY d ORDER BY d DESC`
-    );
-    return { total_users: Number(rows[0].total_users), signups_today: Number(rows[0].signups_today), daily: daily.rows };
+    return { total_users: Number(rows[0].total_users), signups_month: Number(rows[0].signups_month) };
   },
   async overview() {
     const { rows } = await query(

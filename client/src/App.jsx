@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import Navbar from './components/Navbar.jsx';
 import Loading from './components/Loading.jsx';
 import Footer from './components/Footer.jsx';
+import PhonePrompt from './components/PhonePrompt.jsx';
 import Home from './pages/Home.jsx';
 import Groceries from './pages/Groceries.jsx';
 import Food from './pages/Food.jsx';
@@ -54,6 +55,7 @@ export default function App() {
         </Routes>
       </main>
       <Footer />
+      <PhonePrompt />
     </div>
   );
 }

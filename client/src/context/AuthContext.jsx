@@ -21,6 +21,7 @@ export function AuthProvider({ children }) {
     login: async (email, password) => finish(await api.login({ email, password })),
     google: async (credential) => finish(await api.google(credential)),
     register: async (data) => finish(await api.register(data)),
+    savePhone: async (phone) => { const r = await api.savePhone(phone); setUser(r.user); return r.user; },
     logout: () => { tokenStore.clear(); setUser(null); },
   };
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;

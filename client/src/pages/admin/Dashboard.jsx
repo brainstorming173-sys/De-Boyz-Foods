@@ -3,6 +3,7 @@ import Loading from '../../components/Loading.jsx';
 import { Navigation } from 'lucide-react';
 import { api, money } from '../../api.js';
 import { MealsManager, ProductsManager } from './CatalogManager.jsx';
+import UsersList from './UsersList.jsx';
 
 const STATUSES = ['new', 'confirmed', 'preparing', 'out_for_delivery', 'completed', 'cancelled'];
 const PAY = { momo_now: 'Mobile money (pay now)', momo: 'MoMo on delivery', cash: 'Cash' };
@@ -92,7 +93,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="-mx-3 mt-6 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:mt-8 sm:px-0">{tabBtn('orders', 'Orders')}{tabBtn('meals', 'Today\'s meals')}{tabBtn('products', 'Groceries')}</div>
+      <div className="-mx-3 mt-6 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:mt-8 sm:px-0">{tabBtn('orders', 'Orders')}{tabBtn('meals', 'Today\'s meals')}{tabBtn('products', 'Groceries')}{tabBtn('users', 'Users')}</div>
       {error && <p role="alert" className="mt-4 text-chili">{error}</p>}
 
       {tab === 'orders' && (
@@ -163,6 +164,8 @@ export default function Dashboard() {
         </div>
         </>
       )}
+
+      {tab === 'users' && <UsersList />}
 
       {tab === 'meals' && <MealsManager setError={setError} />}
       {tab === 'products' && <ProductsManager setError={setError} />}

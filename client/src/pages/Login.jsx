@@ -22,7 +22,7 @@ export default function Login() {
   }
 
   return (
-    <AuthShell title="Sign in" subtitle="Ordering doesn't need an account. Sign in to see past orders.">
+    <AuthShell title="Sign in" subtitle="Sign in to place orders and see your past orders.">
       <GoogleButton text="signin_with" onDone={(u) => nav(state?.from || (u.role === 'admin' ? '/admin' : '/'), { replace: true })} onError={setError} />
       <form onSubmit={submit} className="space-y-4">
         <div><label className="label" htmlFor="email">Email</label><input id="email" type="email" className="field" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
@@ -31,7 +31,7 @@ export default function Login() {
         <button className="btn-green w-full" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'}</button>
         <div className="flex justify-between text-sm">
           <Link to="/forgot-password" className="text-leaf hover:underline">Forgot password?</Link>
-          <Link to="/register" className="text-leaf hover:underline">Create account</Link>
+          <Link to="/register" state={state} className="text-leaf hover:underline">Create account</Link>
         </div>
       </form>
     </AuthShell>

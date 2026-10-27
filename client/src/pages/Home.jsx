@@ -39,7 +39,7 @@ export default function Home() {
     { Icon: Truck, title: 'Fast Delivery', text: `Meals from ${money(Math.min(...(settings.mealZones.length ? settings.mealZones.map((z) => z.fee) : [5])))}` },
     { Icon: Wallet, title: 'Pay on Delivery', text: 'MoMo or cash' },
     { Icon: Clock, title: 'Fresh Daily', text: 'Meals cooked today' },
-    { Icon: MousePointerClick, title: 'Easy Ordering', text: 'No account needed' },
+    { Icon: MousePointerClick, title: 'Easy Ordering', text: 'Sign up in one tap with Google' },
   ];
 
   return (

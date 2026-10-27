@@ -18,6 +18,28 @@ export const users = {
     );
     return rows[0];
   },
+  // Saves the mobile number (used when someone signed up with Google, which gives no phone).
+  async setPhone(id, phone) {
+    const { rows } = await query(`UPDATE users SET phone = $2 WHERE id = $1 RETURNING ${publicUser}`, [id, phone]);
+    return rows[0];
+  },
+  // Admin: every customer with their contact details and orders.
+  async listWithOrders() {
+    const { rows } = await query(
+      `SELECT u.id, u.name, u.email, u.phone, u.created_at,
+              COUNT(o.id)::int AS order_count,
+              COALESCE(SUM(o.total) FILTER (WHERE o.status <> 'cancelled'), 0) AS total_spent,
+              COALESCE(json_agg(json_build_object(
+                'order_no', o.order_no, 'status', o.status, 'total', o.total,
+                'fulfillment', o.fulfillment, 'created_at', o.created_at,
+                'items', (SELECT string_agg(i.qty || ' x ' || i.name, ', ') FROM order_items i WHERE i.order_id = o.id)
+              ) ORDER BY o.created_at DESC) FILTER (WHERE o.id IS NOT NULL), '[]') AS orders
+       FROM users u LEFT JOIN orders o ON o.user_id = u.id
+       WHERE u.role = 'customer'
+       GROUP BY u.id ORDER BY u.created_at DESC LIMIT 500`
+    );
+    return rows;
+  },
   async findByGoogleId(googleId) {
     const { rows } = await query(`SELECT ${publicUser} FROM users WHERE google_id = $1`, [googleId]);
     return rows[0];

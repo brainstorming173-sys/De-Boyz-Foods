@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import GoogleButton from '../components/GoogleButton.jsx';
 import { Minus, Plus, Trash2, ShoppingBag, Smartphone } from 'lucide-react';
 import { api, money } from '../api.js';
 import { NETWORKS, guessNetwork, normalizePhone } from '../momo.js';
@@ -10,7 +11,9 @@ import { useAuth } from '../context/AuthContext.jsx';
 
 export default function Cart() {
   const cart = useCart();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  const [gate, setGate] = useState(false); // sign-up popup shown when a guest tries to pay
+  const [gateError, setGateError] = useState('');
   const nav = useNavigate();
   const [settings, setSettings] = useState({ mealZones: [], groceryDeliveryFee: 20 });
   const [zone, setZone] = useState(''); // delivery area for meal-only orders
@@ -28,6 +31,7 @@ export default function Cart() {
   useEffect(() => {
     api.paymentNetworks().then((list) => setNetworks(Object.fromEntries(list.map((n) => [n.id, n.available])))).catch(() => {});
   }, []);
+  useEffect(() => { if (user) setGate(false); }, [user]);
   useEffect(() => {
     if (user) setForm((f) => ({ ...f, name: f.name || user.name, email: f.email || user.email, phone: f.phone || user.phone || '' }));
   }, [user]);
@@ -52,6 +56,7 @@ export default function Cart() {
   async function submit(e) {
     e.preventDefault();
     setError('');
+    if (!user) { if (!loading) setGate(true); return; }
     if (needsZone && !zoneRow) return setError('Choose your delivery area so we can work out the delivery fee.');
     if (fulfillment === 'delivery' && !pin) return setError('Drop a pin on the map so our rider can find your exact location.');
     if (payment === 'momo_now') {
@@ -130,7 +135,7 @@ export default function Cart() {
 
       <form onSubmit={submit} className="h-fit space-y-4 rounded-2xl border border-black/5 bg-white p-4 sm:p-6">
         <h2 className="text-xl font-bold">Checkout</h2>
-        <p className="text-sm text-black/60">No account needed.</p>
+        <p className="text-sm text-black/60">{user ? `Ordering as ${user.email}` : 'You\'ll sign up or sign in when you pay.'}</p>
 
         <div className="flex gap-2">
           <button type="button" className={choice(fulfillment === 'delivery')} onClick={() => setFulfillment('delivery')}>Delivery</button>
@@ -192,10 +197,27 @@ export default function Cart() {
         </dl>
 
         {error && <p role="alert" className="text-sm text-chili">{error}</p>}
-        <button className="btn-green w-full py-3.5 text-base" disabled={busy}>
+        <button className="btn-green w-full py-3.5 text-base" disabled={busy}
+          onClick={(e) => { if (!user && !loading) { e.preventDefault(); setGate(true); } }}>
           {busy ? 'Placing order...' : payment === 'momo_now' ? (<><Smartphone className="h-4 w-4" /> Pay {money(total)}</>) : 'Place order'}
         </button>
       </form>
+
+      {gate && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-label="Sign up to continue">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-card">
+            <h2 className="text-2xl font-extrabold tracking-tight">Sign up to place your order</h2>
+            <p className="mt-2 text-sm text-black/60">Create an account first. Your cart will be waiting for you.</p>
+            <div className="mt-5">
+              <GoogleButton text="signup_with" onDone={() => setGate(false)} onError={setGateError} />
+            </div>
+            {gateError && <p role="alert" className="mb-3 text-sm text-chili">{gateError}</p>}
+            <Link to="/register" state={{ from: '/cart' }} className="btn-green w-full">Sign up with email</Link>
+            <p className="mt-4 text-center text-sm">Already have an account? <Link to="/login" state={{ from: '/cart' }} className="font-semibold text-leaf hover:underline">Sign in</Link></p>
+            <button type="button" onClick={() => setGate(false)} className="mt-4 w-full text-center text-sm text-black/50 hover:underline">Not now</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

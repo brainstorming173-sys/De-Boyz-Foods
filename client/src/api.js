@@ -36,6 +36,7 @@ export const api = {
   googleConfig: () => request('/auth/google-config'),
   google: (credential) => request('/auth/google', { method: 'POST', body: { credential } }),
   me: () => request('/auth/me'),
+  savePhone: (phone) => request('/auth/phone', { method: 'PATCH', body: { phone } }),
   verifyEmail: (token) => request('/auth/verify-email', { method: 'POST', body: { token } }),
   forgotPassword: (email) => request('/auth/forgot-password', { method: 'POST', body: { email } }),
   resetPassword: (token, password) => request('/auth/reset-password', { method: 'POST', body: { token, password } }),
@@ -58,6 +59,7 @@ export const api = {
   // admin
   admin: {
     stats: () => request('/orders/stats'),
+    users: () => request('/orders/users'),
     orders: (status) => request(`/orders${status ? `?status=${status}` : ''}`),
     setOrderStatus: (id, status) => request(`/orders/${id}/status`, { method: 'PATCH', body: { status } }),
     setPaymentStatus: (id, status) => request(`/orders/${id}/payment`, { method: 'PATCH', body: { status } }),

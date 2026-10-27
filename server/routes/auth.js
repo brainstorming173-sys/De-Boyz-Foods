@@ -9,11 +9,13 @@ import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email
 
 const r = Router();
 const emailOk = (e) => /^\S+@\S+\.\S+$/.test(e || '');
+const phoneOk = (p) => /^[0-9+\s-]{9,15}$/.test(p || '');
 
 r.post('/register', wrap(async (req, res) => {
   const { name, email, phone, password } = req.body;
   if (!name?.trim()) throw bad('Enter your name');
   if (!emailOk(email)) throw bad('Enter a valid email');
+  if (!phoneOk(phone)) throw bad('Enter a valid mobile number');
   if (!password || password.length < 8) throw bad('Password must be at least 8 characters');
 
   const token = crypto.randomBytes(32).toString('hex');
@@ -74,6 +76,15 @@ r.post('/google', wrap(async (req, res) => {
     }
   }
   res.status(created ? 201 : 200).json({ token: signToken(user), user });
+}));
+
+// Mobile number for accounts that don't have one yet (Google sign-ups, older accounts).
+r.patch('/phone', requireAuth, wrap(async (req, res) => {
+  const phone = String(req.body.phone || '').trim();
+  if (!phoneOk(phone)) throw bad('Enter a valid mobile number');
+  const user = await users.setPhone(req.user.id, phone);
+  if (!user) throw bad('Account not found', 401);
+  res.json({ user });
 }));
 
 r.get('/me', requireAuth, wrap(async (req, res) => {

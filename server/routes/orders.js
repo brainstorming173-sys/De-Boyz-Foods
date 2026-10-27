@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { orders, stats } from '../db/store.js';
+import { orders, stats, users } from '../db/store.js';
 import { optionalAuth, requireAuth, requireAdmin } from '../middleware/auth.js';
 import { wrap, bad } from '../middleware/error.js';
 import { config } from '../config.js';
@@ -8,8 +8,8 @@ import { onOrderPlaced, onOrderPaid } from '../services/orderEmails.js';
 const r = Router();
 const STATUSES = ['new', 'confirmed', 'preparing', 'out_for_delivery', 'completed', 'cancelled'];
 
-// Checkout. No account needed; if a valid token is sent the order is linked to that user.
-r.post('/', optionalAuth, wrap(async (req, res) => {
+// Checkout. An account is required, so every order is linked to a user.
+r.post('/', requireAuth, wrap(async (req, res) => {
   const { items, customer = {}, fulfillment = 'delivery', paymentMethod = 'cash' } = req.body;
   if (!Array.isArray(items) || !items.length) throw bad('Your cart is empty');
   if (!customer.name?.trim()) throw bad('Enter your name');
@@ -44,6 +44,7 @@ r.get('/track/:orderNo', wrap(async (req, res) => {
 
 /* ---- admin ---- */
 r.get('/', requireAdmin, wrap(async (req, res) => res.json(await orders.listAll({ status: req.query.status }))));
+r.get('/users', requireAdmin, wrap(async (_req, res) => res.json(await users.listWithOrders())));
 r.get('/stats', requireAdmin, wrap(async (_req, res) => res.json({ ...(await stats.overview()), ...(await stats.users()) })));
 r.patch('/:id/status', requireAdmin, wrap(async (req, res) => {
   if (!STATUSES.includes(req.body.status)) throw bad('Invalid status');

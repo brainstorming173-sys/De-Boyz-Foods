@@ -257,6 +257,28 @@ export const orders = {
       return { ...order, items: priced };
     });
   },
+  // Walk-in / phone order typed in by the admin. Already paid and completed; counts toward that day's revenue.
+  async createManual({ items, customerName, date, paymentMethod, note }) {
+    return tx(async (c) => {
+      const subtotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);
+      const { rows } = await c.query(
+        `INSERT INTO orders (order_no, user_id, customer_name, phone, fulfillment, note, payment_method, payment_status,
+                             status, subtotal, delivery_fee, total, source, created_at)
+         VALUES ($1, NULL, $2, NULL, 'pickup', $3, $4, 'paid', 'completed', $5, 0, $5, 'manual',
+                 CASE WHEN $6::date IS NULL OR $6::date = CURRENT_DATE THEN NOW() ELSE ($6::date + TIME '12:00') END)
+         RETURNING *`,
+        [orderNo(), customerName || 'Walk-in', note || null, paymentMethod, subtotal, date || null]
+      );
+      const order = rows[0];
+      for (const i of items) {
+        await c.query(
+          `INSERT INTO order_items (order_id, item_type, item_id, name, unit_price, qty) VALUES ($1,'manual',NULL,$2,$3,$4)`,
+          [order.id, i.name, i.price, i.qty]
+        );
+      }
+      return { ...order, items: items.map((i) => ({ name: i.name, qty: i.qty, unit_price: i.price })) };
+    });
+  },
   async getByNo(no) {
     const { rows } = await query('SELECT * FROM orders WHERE order_no = $1', [no]);
     if (!rows[0]) return null;

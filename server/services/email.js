@@ -138,7 +138,7 @@ export async function sendOrderNotification(order) {
 
 // To the customer: their receipt (only when they gave an email).
 export async function sendOrderReceipt(order) {
-  if (!order.email) return;
+  if (!order.email) { console.warn(`[email] Order ${order.order_no} has no customer email, receipt skipped.`); return; }
   const paid = order.payment_status === 'paid';
   return send({
     to: order.email,

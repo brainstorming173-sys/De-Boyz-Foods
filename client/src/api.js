@@ -61,6 +61,7 @@ export const api = {
     stats: () => request('/orders/stats'),
     users: () => request('/orders/users'),
     orders: (status) => request(`/orders${status ? `?status=${status}` : ''}`),
+    createManualOrder: (b) => request('/orders/manual', { method: 'POST', body: b }),
     setOrderStatus: (id, status) => request(`/orders/${id}/status`, { method: 'PATCH', body: { status } }),
     setPaymentStatus: (id, status) => request(`/orders/${id}/payment`, { method: 'PATCH', body: { status } }),
     meals: () => request('/admin/meals'),

@@ -9,6 +9,7 @@ import Groceries from './pages/Groceries.jsx';
 import Food from './pages/Food.jsx';
 import Cart from './pages/Cart.jsx';
 import OrderDone from './pages/OrderDone.jsx';
+import Orders from './pages/Orders.jsx';
 import PayMomo from './pages/PayMomo.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="/cart" element={<Cart />} />
           <Route path="/pay/:orderNo" element={<PayMomo />} />
           <Route path="/order/:orderNo" element={<OrderDone />} />
+          <Route path="/orders" element={<Orders />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />

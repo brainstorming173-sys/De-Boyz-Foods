@@ -8,14 +8,21 @@ async function send({ to, subject, html }) {
     console.log(`\n[email:dev] to=${to}\nsubject=${subject}\n${html.replace(/<[^>]+>/g, ' ')}\n`);
     return true;
   }
-  try {
-    const { error } = await resend.emails.send({ from: config.emailFrom, to, subject, html });
-    if (error) { console.error('Resend error:', error); return false; }
-    return true;
-  } catch (e) {
-    console.error('Resend error:', e.message);
-    return false;
+  // Resend allows only a couple of requests per second. If we hit that limit, wait and try again.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const { error } = await resend.emails.send({ from: config.emailFrom, to, subject, html });
+      if (!error) return true;
+      console.error(`Resend error (try ${attempt}) sending "${subject}" to ${[].concat(to).join(', ')}:`, error);
+      const limited = error.statusCode === 429 || error.name === 'rate_limit_exceeded';
+      if (!limited) return false;
+    } catch (e) {
+      console.error(`Resend error sending "${subject}":`, e.message);
+      return false;
+    }
+    await new Promise((r) => setTimeout(r, 1000 * attempt));
   }
+  return false;
 }
 
 const wrapHtml = (body) =>
@@ -138,7 +145,7 @@ export async function sendOrderNotification(order) {
 
 // To the customer: their receipt (only when they gave an email).
 export async function sendOrderReceipt(order) {
-  if (!order.email) return;
+  if (!order.email) { console.warn(`[email] Order ${order.order_no} has no customer email, receipt skipped.`); return; }
   const paid = order.payment_status === 'paid';
   return send({
     to: order.email,
@@ -148,7 +155,8 @@ export async function sendOrderReceipt(order) {
       heading: `Thank you, ${order.customer_name}!`,
       body: `<p style="margin:0 0 16px;font-size:14px;line-height:1.5">${paid
         ? 'We have received your payment. Here is your receipt.'
-        : 'We have received your order and will be in touch shortly.'} You can track it any time with your order number.</p>${orderBody(order, { forOwner: false })}
+        : 'We have received your order and will be in touch shortly.'} You can track it any time with your order number.</p>
+        <p style="margin:0 0 20px"><a href="${config.clientOrigin}/order/${order.order_no}" style="display:inline-block;background:#0b6b2e;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none;font-size:14px">Track your order</a></p>${orderBody(order, { forOwner: false })}
         <p style="margin:20px 0 0;font-size:13px;color:#666">Questions? Reply to this email or call us.</p>`,
     }),
   });

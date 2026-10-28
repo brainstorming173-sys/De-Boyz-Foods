@@ -13,18 +13,44 @@ export default function OrderDone() {
 
   useEffect(() => { api.trackOrder(orderNo).then(setOrder).catch((e) => setError(e.message)); }, [orderNo]);
 
+  // Keep the status fresh: check again every 20 seconds until the order is finished.
+  const finished = order && (order.status === 'completed' || order.status === 'cancelled');
+  useEffect(() => {
+    if (!order || finished) return;
+    const t = setInterval(() => { api.trackOrder(orderNo).then(setOrder).catch(() => {}); }, 20000);
+    return () => clearInterval(t);
+  }, [orderNo, !!order, finished]);
+
   if (error) return <p className="p-16 text-center text-chili">{error}</p>;
   if (!order) return <Loading message="Loading your order..." />;
 
+  // Pickup orders skip the "on the way" step.
+  const steps = order.fulfillment === 'pickup'
+    ? ['new', 'confirmed', 'preparing', 'completed']
+    : ['new', 'confirmed', 'preparing', 'out_for_delivery', 'completed'];
+  const stepIndex = Math.max(0, steps.indexOf(order.status));
   const unpaidOnline = order.payment_method === 'momo_now' && order.payment_status !== 'paid';
 
   return (
     <div className="mx-auto max-w-xl px-4 py-8 sm:px-6 sm:py-14">
       <div className="text-center">
         <CheckCircle2 className="mx-auto h-12 w-12 text-leaf" />
-        <h1 className="mt-4 text-2xl font-extrabold sm:text-3xl">Order {order.order_no} placed</h1>
-        <p className="mt-2 text-black/60">Status: <strong>{LABEL[order.status]}</strong>. Save your order number to check back.</p>
+        <h1 className="mt-4 text-2xl font-extrabold sm:text-3xl">Order {order.order_no}</h1>
+        <p className="mt-2 text-black/60">Status: <strong>{LABEL[order.status]}</strong>. This page updates by itself. You can find it again any time under <Link to="/orders" className="font-semibold text-leaf underline">Orders</Link>.</p>
       </div>
+
+      {order.status === 'cancelled' ? (
+        <p className="mt-6 rounded-xl bg-chili-soft px-4 py-3 text-center text-sm text-chili">This order was cancelled. Please contact us if you have any questions.</p>
+      ) : (
+        <ol className="mt-6 grid gap-1" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
+          {steps.map((s, n) => (
+            <li key={s} className="text-center">
+              <span className={`mx-auto block h-2 rounded-full ${n <= stepIndex ? 'bg-leaf' : 'bg-black/10'}`} />
+              <span className={`mt-1.5 block text-[11px] leading-tight sm:text-xs ${n === stepIndex ? 'font-bold text-leaf' : 'text-black/50'}`}>{s === 'out_for_delivery' ? 'On the way' : LABEL[s]}</span>
+            </li>
+          ))}
+        </ol>
+      )}
 
       {unpaidOnline && (
         <div className="mt-6 rounded-xl bg-chili-soft px-4 py-3 text-sm text-chili">

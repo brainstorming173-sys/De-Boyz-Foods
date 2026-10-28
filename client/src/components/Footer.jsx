@@ -8,6 +8,7 @@ export default function Footer() {
         <div className="flex flex-wrap gap-x-5 gap-y-2">
           <Link to="/groceries" className="hover:text-ink">Groceries</Link>
           <Link to="/food" className="hover:text-ink">Hot meals</Link>
+          <Link to="/orders" className="hover:text-ink">Track order</Link>
           <Link to="/login" className="hover:text-ink">Sign in</Link>
         </div>
       </div>

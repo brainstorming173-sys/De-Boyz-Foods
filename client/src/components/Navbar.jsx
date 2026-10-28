@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, MapPin, ShoppingCart, User, LogOut, LayoutDashboard } from 'lucide-react';
+import { Search, MapPin, ShoppingCart, User, LogOut, LayoutDashboard, ClipboardList } from 'lucide-react';
 import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { money } from '../api.js';
@@ -70,6 +70,7 @@ export default function Navbar() {
 
           {isAdmin && <Link to="/admin" className="btn-ghost hidden sm:inline-flex"><LayoutDashboard className="h-4 w-4" /> Admin</Link>}
           {isAdmin && <Link to="/admin" className="btn-ghost h-10 w-10 p-0 sm:hidden" aria-label="Admin"><LayoutDashboard className="h-4 w-4" /></Link>}
+          <Link to="/orders" className="btn-ghost h-10 w-10 p-0 sm:h-auto sm:w-auto sm:px-3" aria-label="Track orders" title="Track orders"><ClipboardList className="h-4 w-4" /><span className="hidden sm:inline">Orders</span></Link>
           {user ? (
             <button onClick={logout} className="btn-ghost h-10 w-10 p-0 sm:h-auto sm:w-auto sm:px-3" aria-label="Sign out" title={`Signed in as ${user.name}`}><LogOut className="h-4 w-4" /></button>
           ) : (

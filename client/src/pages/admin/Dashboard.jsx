@@ -4,6 +4,7 @@ import { Navigation } from 'lucide-react';
 import { api, money } from '../../api.js';
 import { MealsManager, ProductsManager } from './CatalogManager.jsx';
 import UsersList from './UsersList.jsx';
+import ManualOrder from './ManualOrder.jsx';
 
 const STATUSES = ['new', 'confirmed', 'preparing', 'out_for_delivery', 'completed', 'cancelled'];
 const PAY = { momo_now: 'Mobile money (pay now)', momo: 'MoMo on delivery', cash: 'Cash' };
@@ -21,6 +22,11 @@ export default function Dashboard() {
     api.admin.orders().then(setOrders).catch((e) => setError(e.message));
   };
   useEffect(load, []);
+
+  function addManual(order) {
+    setOrders((cur) => [order, ...(cur || [])]);
+    api.admin.stats().then(setStats).catch(() => {}); // revenue today updates right away
+  }
 
   async function setStatus(id, status) {
     try {
@@ -53,7 +59,7 @@ export default function Dashboard() {
   };
 
   // Every mobile money payment is confirmed by hand: shows the customer's transaction ID and the confirm / reject buttons.
-  const manualPay = (o) => o.payment_method !== 'momo_now' ? (
+  const manualPay = (o) => o.source === 'manual' ? null : o.payment_method !== 'momo_now' ? (
     // Cash / MoMo on delivery: mark it paid once the customer has paid the rider or at pickup.
     <div className="mt-2 text-xs">
       {o.payment_status === 'paid'
@@ -98,6 +104,7 @@ export default function Dashboard() {
 
       {tab === 'orders' && (
         <>
+        <ManualOrder onCreated={addManual} setError={setError} />
         {/* Phones: one card per order */}
         <ul className="mt-5 space-y-3 md:hidden">
           {orders === null && <li className="rounded-2xl border border-black/5 bg-white"><Loading message="Loading orders..." className="py-8" /></li>}
@@ -106,7 +113,7 @@ export default function Dashboard() {
             <li key={o.id} className="rounded-2xl border border-black/5 bg-white p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-display font-bold">{o.order_no}</p>
+                  <p className="font-display font-bold">{o.order_no}{o.source === 'manual' && <span className="ml-2 rounded-full bg-black/5 px-2 py-0.5 text-xs font-semibold text-black/60">Walk-in / phone</span>}</p>
                   <p className="text-xs text-black/50">{new Date(o.created_at).toLocaleString()}</p>
                 </div>
                 <p className="shrink-0 font-display text-lg font-bold">{money(o.total)}</p>
@@ -115,8 +122,8 @@ export default function Dashboard() {
               <div className="mt-3 text-sm">
                 <p className="font-semibold">{o.customer_name}</p>
                 {o.email && <p className="break-all text-xs text-black/50">{o.email}</p>}
-                <a href={`tel:${o.phone}`} className="text-leaf underline">{o.phone}</a>
-                <p className="break-words text-black/60">{o.fulfillment === 'pickup' ? 'Pickup' : o.address}</p>
+                {o.phone && <a href={`tel:${o.phone}`} className="text-leaf underline">{o.phone}</a>}
+                <p className="break-words text-black/60">{o.source === 'manual' ? 'In person / phone' : o.fulfillment === 'pickup' ? 'Pickup' : o.address}</p>
                 {directions(o)}
               </div>
 
@@ -125,7 +132,7 @@ export default function Dashboard() {
               </ul>
 
               <p className="mt-3 text-sm">
-                {PAY[o.payment_method]} <span className="text-xs text-black/50">({o.payment_status})</span>
+                {o.source === 'manual' ? (o.payment_method === 'momo' ? 'Mobile money' : 'Cash') : PAY[o.payment_method]} <span className="text-xs text-black/50">({o.payment_status})</span>
                 {o.payment_method === 'momo_now' && NETWORK[o.payment_network] && <span className="text-xs text-black/50"> · {NETWORK[o.payment_network]}</span>}
               </p>
               {manualPay(o)}
@@ -148,11 +155,11 @@ export default function Dashboard() {
               {orders?.length === 0 && <tr><td className="p-6 text-black/60" colSpan={6}>No orders yet.</td></tr>}
               {orders?.map((o) => (
                 <tr key={o.id} className="align-top">
-                  <td className="p-4 font-semibold">{o.order_no}<div className="text-xs font-normal text-black/50">{new Date(o.created_at).toLocaleString()}</div></td>
-                  <td className="p-4">{o.customer_name}{o.email && <div className="break-all text-xs text-black/50">{o.email}</div>}<div className="text-xs text-black/50">{o.phone}</div><div className="text-xs text-black/50">{o.fulfillment === 'pickup' ? 'Pickup' : o.address}</div>{directions(o)}</td>
+                  <td className="p-4 font-semibold">{o.order_no}{o.source === 'manual' && <span className="ml-2 rounded-full bg-black/5 px-2 py-0.5 text-xs font-semibold text-black/60">Walk-in / phone</span>}<div className="text-xs font-normal text-black/50">{new Date(o.created_at).toLocaleString()}</div></td>
+                  <td className="p-4">{o.customer_name}{o.email && <div className="break-all text-xs text-black/50">{o.email}</div>}{o.phone && <div className="text-xs text-black/50">{o.phone}</div>}<div className="text-xs text-black/50">{o.source === 'manual' ? 'In person / phone' : o.fulfillment === 'pickup' ? 'Pickup' : o.address}</div>{directions(o)}</td>
                   <td className="p-4">{o.items.map((i, n) => <div key={n}>{i.qty} &times; {i.name}</div>)}</td>
                   <td className="p-4 font-semibold">{money(o.total)}</td>
-                  <td className="p-4">{PAY[o.payment_method]} <span className="text-xs text-black/50">({o.payment_status})</span>{o.payment_method === 'momo_now' && NETWORK[o.payment_network] && <div className="text-xs text-black/50">{NETWORK[o.payment_network]}</div>}{manualPay(o)}</td>
+                  <td className="p-4">{o.source === 'manual' ? (o.payment_method === 'momo' ? 'Mobile money' : 'Cash') : PAY[o.payment_method]} <span className="text-xs text-black/50">({o.payment_status})</span>{o.payment_method === 'momo_now' && NETWORK[o.payment_network] && <div className="text-xs text-black/50">{NETWORK[o.payment_network]}</div>}{manualPay(o)}</td>
                   <td className="p-4">
                     <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="field py-1.5" aria-label={`Status for ${o.order_no}`}>
                       {STATUSES.map((s) => <option key={s} value={s}>{LABEL[s]}</option>)}

@@ -8,14 +8,21 @@ async function send({ to, subject, html }) {
     console.log(`\n[email:dev] to=${to}\nsubject=${subject}\n${html.replace(/<[^>]+>/g, ' ')}\n`);
     return true;
   }
-  try {
-    const { error } = await resend.emails.send({ from: config.emailFrom, to, subject, html });
-    if (error) { console.error('Resend error:', error); return false; }
-    return true;
-  } catch (e) {
-    console.error('Resend error:', e.message);
-    return false;
+  // Resend allows only a couple of requests per second. If we hit that limit, wait and try again.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const { error } = await resend.emails.send({ from: config.emailFrom, to, subject, html });
+      if (!error) return true;
+      console.error(`Resend error (try ${attempt}) sending "${subject}" to ${[].concat(to).join(', ')}:`, error);
+      const limited = error.statusCode === 429 || error.name === 'rate_limit_exceeded';
+      if (!limited) return false;
+    } catch (e) {
+      console.error(`Resend error sending "${subject}":`, e.message);
+      return false;
+    }
+    await new Promise((r) => setTimeout(r, 1000 * attempt));
   }
+  return false;
 }
 
 const wrapHtml = (body) =>

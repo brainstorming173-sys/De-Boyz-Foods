@@ -25,6 +25,8 @@ r.post('/', requireAuth, wrap(async (req, res) => {
     if (!ok) throw bad('Drop a pin on the map to mark your delivery location');
     location = { lat, lng };
   }
+  // The checkout form has no email box: use the signed-in account's email so the receipt always has somewhere to go.
+  if (!customer.email?.trim()) customer.email = (await users.findById(req.user.id))?.email || null;
   const order = await orders.create({ userId: req.user?.id, customer, items, fulfillment, paymentMethod, location, deliveryZone: req.body.deliveryZone });
   res.status(201).json(order);
   onOrderPlaced(order); // emails go out in the background

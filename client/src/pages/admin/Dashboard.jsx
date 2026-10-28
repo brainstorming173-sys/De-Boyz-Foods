@@ -114,6 +114,7 @@ export default function Dashboard() {
 
               <div className="mt-3 text-sm">
                 <p className="font-semibold">{o.customer_name}</p>
+                {o.email && <p className="break-all text-xs text-black/50">{o.email}</p>}
                 <a href={`tel:${o.phone}`} className="text-leaf underline">{o.phone}</a>
                 <p className="break-words text-black/60">{o.fulfillment === 'pickup' ? 'Pickup' : o.address}</p>
                 {directions(o)}
@@ -148,7 +149,7 @@ export default function Dashboard() {
               {orders?.map((o) => (
                 <tr key={o.id} className="align-top">
                   <td className="p-4 font-semibold">{o.order_no}<div className="text-xs font-normal text-black/50">{new Date(o.created_at).toLocaleString()}</div></td>
-                  <td className="p-4">{o.customer_name}<div className="text-xs text-black/50">{o.phone}</div><div className="text-xs text-black/50">{o.fulfillment === 'pickup' ? 'Pickup' : o.address}</div>{directions(o)}</td>
+                  <td className="p-4">{o.customer_name}{o.email && <div className="break-all text-xs text-black/50">{o.email}</div>}<div className="text-xs text-black/50">{o.phone}</div><div className="text-xs text-black/50">{o.fulfillment === 'pickup' ? 'Pickup' : o.address}</div>{directions(o)}</td>
                   <td className="p-4">{o.items.map((i, n) => <div key={n}>{i.qty} &times; {i.name}</div>)}</td>
                   <td className="p-4 font-semibold">{money(o.total)}</td>
                   <td className="p-4">{PAY[o.payment_method]} <span className="text-xs text-black/50">({o.payment_status})</span>{o.payment_method === 'momo_now' && NETWORK[o.payment_network] && <div className="text-xs text-black/50">{NETWORK[o.payment_network]}</div>}{manualPay(o)}</td>

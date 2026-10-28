@@ -13,6 +13,7 @@ export function onOrderPlaced(order) {
       const ok = await sendOrderNotification(order);
       if (!ok) await orders.releaseEmail(order.id, 'owner_notified_at');
     }
+    await new Promise((r) => setTimeout(r, 700)); // stay under Resend's requests-per-second limit
     await sendOrderReceipt(order); // confirmation (unpaid) or receipt, depending on payment_status
   });
 }

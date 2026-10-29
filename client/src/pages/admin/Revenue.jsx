@@ -8,7 +8,7 @@ const RANGES = [[7, 'Last 7 days'], [30, 'Last 30 days'], [90, 'Last 90 days']];
 const nice = (day) => new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 
 // Daily revenue, overall totals, and a way to add an order that was forgotten on an earlier day.
-export default function Revenue({ setError }) {
+export default function Revenue({ setError, onOrderAdded }) {
   const [days, setDays] = useState(30);
   const [data, setData] = useState(null);
   const [picked, setPicked] = useState(null);
@@ -47,7 +47,7 @@ export default function Revenue({ setError }) {
         title="Forgot to add an order? Add it to a day"
         pickedDate={picked}
         setError={setError}
-        onCreated={() => load()}
+        onCreated={(order) => { onOrderAdded?.(order); load(); }}
       />
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-2">

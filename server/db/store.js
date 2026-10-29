@@ -364,13 +364,13 @@ export const stats = {
   async revenue(days = 30) {
     const n = Math.min(Math.max(parseInt(days, 10) || 30, 1), 365);
     const daily = await query(
-      `SELECT to_char(d::date, 'YYYY-MM-DD') AS day,
-              COALESCE(COUNT(o.id), 0) AS orders,
+      `SELECT to_char(CURRENT_DATE - g.n, 'YYYY-MM-DD') AS day,
+              COUNT(o.id) AS orders,
               COALESCE(SUM(o.total), 0) AS revenue,
               COALESCE(SUM(o.total) FILTER (WHERE o.source = 'manual'), 0) AS manual_revenue
-       FROM generate_series(CURRENT_DATE - ($1::int - 1), CURRENT_DATE, '1 day') d
-       LEFT JOIN orders o ON o.created_at::date = d::date AND o.status <> 'cancelled'
-       GROUP BY d ORDER BY d DESC`,
+       FROM generate_series(0, $1::int - 1) AS g(n)
+       LEFT JOIN orders o ON o.created_at::date = CURRENT_DATE - g.n AND o.status <> 'cancelled'
+       GROUP BY g.n ORDER BY g.n ASC`,
       [n]
     );
     const totals = await query(

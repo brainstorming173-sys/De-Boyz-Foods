@@ -257,6 +257,28 @@ export const orders = {
       return { ...order, items: priced };
     });
   },
+  // Walk-in / phone order typed in by the admin. Already paid and completed; counts toward that day's revenue.
+  async createManual({ items, customerName, date, paymentMethod, note }) {
+    return tx(async (c) => {
+      const subtotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);
+      const { rows } = await c.query(
+        `INSERT INTO orders (order_no, user_id, customer_name, phone, fulfillment, note, payment_method, payment_status,
+                             status, subtotal, delivery_fee, total, source, created_at)
+         VALUES ($1, NULL, $2, NULL, 'pickup', $3, $4, 'paid', 'completed', $5, 0, $5, 'manual',
+                 CASE WHEN $6::date IS NULL OR $6::date = CURRENT_DATE THEN NOW() ELSE ($6::date + TIME '12:00') END)
+         RETURNING *`,
+        [orderNo(), customerName || 'Walk-in', note || null, paymentMethod, subtotal, date || null]
+      );
+      const order = rows[0];
+      for (const i of items) {
+        await c.query(
+          `INSERT INTO order_items (order_id, item_type, item_id, name, unit_price, qty) VALUES ($1,'manual',NULL,$2,$3,$4)`,
+          [order.id, i.name, i.price, i.qty]
+        );
+      }
+      return { ...order, items: items.map((i) => ({ name: i.name, qty: i.qty, unit_price: i.price })) };
+    });
+  },
   async getByNo(no) {
     const { rows } = await query('SELECT * FROM orders WHERE order_no = $1', [no]);
     if (!rows[0]) return null;
@@ -337,6 +359,33 @@ export const stats = {
        FROM users`
     );
     return { total_users: Number(rows[0].total_users), signups_month: Number(rows[0].signups_month) };
+  },
+  // Revenue per day (cancelled orders excluded), newest first, plus all-time and this-month totals.
+  async revenue(days = 30) {
+    const n = Math.min(Math.max(parseInt(days, 10) || 30, 1), 365);
+    const daily = await query(
+      `SELECT to_char(d::date, 'YYYY-MM-DD') AS day,
+              COALESCE(COUNT(o.id), 0) AS orders,
+              COALESCE(SUM(o.total), 0) AS revenue,
+              COALESCE(SUM(o.total) FILTER (WHERE o.source = 'manual'), 0) AS manual_revenue
+       FROM generate_series(CURRENT_DATE - ($1::int - 1), CURRENT_DATE, '1 day') d
+       LEFT JOIN orders o ON o.created_at::date = d::date AND o.status <> 'cancelled'
+       GROUP BY d ORDER BY d DESC`,
+      [n]
+    );
+    const totals = await query(
+      `SELECT COALESCE(SUM(total), 0) AS total_revenue,
+              COUNT(*) AS total_orders,
+              COALESCE(SUM(total) FILTER (WHERE created_at::date = CURRENT_DATE), 0) AS today,
+              COALESCE(SUM(total) FILTER (WHERE date_trunc('month', created_at) = date_trunc('month', NOW())), 0) AS this_month
+       FROM orders WHERE status <> 'cancelled'`
+    );
+    const t = totals.rows[0];
+    return {
+      total_revenue: Number(t.total_revenue), total_orders: Number(t.total_orders),
+      today: Number(t.today), this_month: Number(t.this_month),
+      daily: daily.rows.map((r) => ({ day: r.day, orders: Number(r.orders), revenue: Number(r.revenue), manual_revenue: Number(r.manual_revenue) })),
+    };
   },
   async overview() {
     const { rows } = await query(

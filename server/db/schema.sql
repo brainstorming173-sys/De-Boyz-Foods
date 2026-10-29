@@ -118,3 +118,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users (google_id) WHERE
 
 -- Meals that stay on the menu on following days until the admin turns it off. Safe to re-run.
 ALTER TABLE meals ADD COLUMN IF NOT EXISTS carry_over BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Walk-in / phone orders entered by hand in the admin. Safe to re-run.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'online';
+ALTER TABLE orders ALTER COLUMN phone DROP NOT NULL;
+ALTER TABLE order_items ALTER COLUMN item_id DROP NOT NULL;
+ALTER TABLE order_items DROP CONSTRAINT IF EXISTS order_items_item_type_check;
+ALTER TABLE order_items ADD CONSTRAINT order_items_item_type_check CHECK (item_type IN ('product', 'meal', 'manual'));

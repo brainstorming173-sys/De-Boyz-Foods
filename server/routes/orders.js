@@ -44,10 +44,33 @@ r.get('/track/:orderNo', wrap(async (req, res) => {
   res.json(safe);
 }));
 
+// Walk-in / phone orders: the admin types in the food, price and date.
+r.post('/manual', requireAdmin, wrap(async (req, res) => {
+  const { items, customerName, date, paymentMethod = 'cash', note } = req.body;
+  if (!Array.isArray(items) || !items.length) throw bad('Add at least one item');
+  const clean = items.map((i) => {
+    const name = String(i.name || '').trim().slice(0, 120);
+    const price = Number(i.price);
+    const qty = parseInt(i.qty, 10) || 1;
+    if (!name) throw bad('Enter the food name');
+    if (!Number.isFinite(price) || price < 0 || price > 100000) throw bad(`Enter a valid price for ${name}`);
+    if (qty < 1 || qty > 999) throw bad(`Enter a valid quantity for ${name}`);
+    return { name, price: Math.round(price * 100) / 100, qty };
+  });
+  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw bad('Enter a valid date');
+  if (!['cash', 'momo'].includes(paymentMethod)) throw bad('Choose cash or mobile money');
+  const order = await orders.createManual({
+    items: clean, customerName: String(customerName || '').trim().slice(0, 80), date, paymentMethod,
+    note: String(note || '').trim().slice(0, 300),
+  });
+  res.status(201).json(order); // no emails: these customers did not order online
+}));
+
 /* ---- admin ---- */
 r.get('/', requireAdmin, wrap(async (req, res) => res.json(await orders.listAll({ status: req.query.status }))));
 r.get('/users', requireAdmin, wrap(async (_req, res) => res.json(await users.listWithOrders())));
 r.get('/stats', requireAdmin, wrap(async (_req, res) => res.json({ ...(await stats.overview()), ...(await stats.users()) })));
+r.get('/revenue', requireAdmin, wrap(async (req, res) => res.json(await stats.revenue(req.query.days))));
 r.patch('/:id/status', requireAdmin, wrap(async (req, res) => {
   if (!STATUSES.includes(req.body.status)) throw bad('Invalid status');
   const row = await orders.setStatus(req.params.id, req.body.status);

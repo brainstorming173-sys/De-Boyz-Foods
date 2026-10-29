@@ -12,8 +12,9 @@ export default function Revenue({ setError }) {
   const [days, setDays] = useState(30);
   const [data, setData] = useState(null);
   const [picked, setPicked] = useState(null);
+  const [loadError, setLoadError] = useState('');
 
-  const load = () => api.admin.revenue(days).then(setData).catch((e) => setError(e.message));
+  const load = () => api.admin.revenue(days).then((d) => { setLoadError(''); setData(d); }).catch((e) => setLoadError(e.message || 'Could not load revenue'));
   useEffect(() => { setData(null); load(); }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const todayKey = data?.daily?.[0]?.day;
@@ -21,7 +22,12 @@ export default function Revenue({ setError }) {
 
   return (
     <div className="mt-5">
-      {!data ? (
+      {loadError ? (
+        <div className="rounded-2xl border border-chili/30 bg-white p-5">
+          <p className="font-semibold text-chili">Could not load revenue: {loadError}</p>
+          <button onClick={() => { setLoadError(''); load(); }} className="mt-3 rounded-full bg-leaf px-4 py-1.5 text-sm font-semibold text-white">Try again</button>
+        </div>
+      ) : !data ? (
         <div className="rounded-2xl border border-black/5 bg-white"><Loading message="Loading revenue..." className="py-8" /></div>
       ) : (
         <>

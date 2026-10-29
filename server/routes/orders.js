@@ -71,6 +71,17 @@ r.get('/', requireAdmin, wrap(async (req, res) => res.json(await orders.listAll(
 r.get('/users', requireAdmin, wrap(async (_req, res) => res.json(await users.listWithOrders())));
 r.get('/stats', requireAdmin, wrap(async (_req, res) => res.json({ ...(await stats.overview()), ...(await stats.users()) })));
 r.get('/revenue', requireAdmin, wrap(async (req, res) => res.json(await stats.revenue(req.query.days))));
+r.get('/day/:date', requireAdmin, wrap(async (req, res) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(req.params.date)) throw bad('Enter a valid date');
+  res.json(await orders.listByDay(req.params.date));
+}));
+r.delete('/:id', requireAdmin, wrap(async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isInteger(id)) throw bad('Invalid order');
+  const row = await orders.remove(id);
+  if (!row) throw bad('Order not found', 404);
+  res.json({ ok: true });
+}));
 r.patch('/:id/status', requireAdmin, wrap(async (req, res) => {
   if (!STATUSES.includes(req.body.status)) throw bad('Invalid status');
   const row = await orders.setStatus(req.params.id, req.body.status);

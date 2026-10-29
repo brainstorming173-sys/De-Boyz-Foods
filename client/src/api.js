@@ -60,6 +60,8 @@ export const api = {
   admin: {
     stats: () => request('/orders/stats'),
     users: () => request('/orders/users'),
+    ordersOnDay: (day) => request(`/orders/day/${day}`),
+    deleteOrder: (id) => request(`/orders/${id}`, { method: 'DELETE' }),
     revenue: (days = 30) => request(`/orders/revenue?days=${days}`),
     orders: (status) => request(`/orders${status ? `?status=${status}` : ''}`),
     createManualOrder: (b) => request('/orders/manual', { method: 'POST', body: b }),

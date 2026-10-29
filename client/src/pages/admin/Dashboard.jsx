@@ -25,7 +25,8 @@ export default function Dashboard() {
   useEffect(load, []);
 
   function addManual(order) {
-    setOrders((cur) => [order, ...(cur || [])]);
+    // Newest first by date, so a back-dated order lands in the right place in the list.
+    setOrders((cur) => [order, ...(cur || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
     api.admin.stats().then(setStats).catch(() => {}); // revenue today updates right away
   }
 
@@ -174,7 +175,7 @@ export default function Dashboard() {
         </>
       )}
 
-      {tab === 'revenue' && <Revenue setError={setError} />}
+      {tab === 'revenue' && <Revenue setError={setError} onOrderAdded={addManual} />}
 
       {tab === 'users' && <UsersList />}
 

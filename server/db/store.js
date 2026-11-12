@@ -96,6 +96,48 @@ export const users = {
   },
 };
 
+/* ---------------- promo / site settings ---------------- */
+// Final price a customer pays: the promo price while promo mode is ON, otherwise the normal price.
+export function withPromo(row, promoOn) {
+  const price = Number(row.price);
+  const promo = row.promo_price == null ? null : Number(row.promo_price);
+  const on = !!promoOn && promo != null && promo < price;
+  return {
+    ...row,
+    on_promo: on,
+    final_price: on ? promo : price,
+    discount_percent: on && price > 0 ? Math.round((1 - promo / price) * 100) : 0,
+  };
+}
+
+export const settings = {
+  async get() {
+    const { rows } = await query('SELECT * FROM site_settings WHERE id = 1');
+    return rows[0] || { promo_enabled: false, promo_name: '', promo_description: '', promo_theme: 'black_friday', promo_color_a: '#111111', promo_color_b: '#F5B301' };
+  },
+  async update(d) {
+    const { rows } = await query(
+      `INSERT INTO site_settings (id, promo_enabled, promo_name, promo_description, promo_theme, promo_color_a, promo_color_b)
+       VALUES (1, $1, $2, $3, $4, $5, $6)
+       ON CONFLICT (id) DO UPDATE SET promo_enabled = $1, promo_name = $2, promo_description = $3,
+         promo_theme = $4, promo_color_a = $5, promo_color_b = $6, updated_at = NOW()
+       RETURNING *`,
+      [d.promo_enabled, d.promo_name, d.promo_description, d.promo_theme, d.promo_color_a, d.promo_color_b]
+    );
+    return rows[0];
+  },
+  async setEnabled(on) {
+    const { rows } = await query('UPDATE site_settings SET promo_enabled = $1, updated_at = NOW() WHERE id = 1 RETURNING *', [on]);
+    return rows[0];
+  },
+  // New event: wipe every item's promo price so the next event starts clean.
+  async clearPromoPrices() {
+    const a = await query('UPDATE products SET promo_price = NULL WHERE promo_price IS NOT NULL');
+    const b = await query('UPDATE meals SET promo_price = NULL WHERE promo_price IS NOT NULL');
+    return a.rowCount + b.rowCount;
+  },
+};
+
 /* ---------------- categories ---------------- */
 export const categories = {
   async list() {
@@ -113,12 +155,14 @@ export const categories = {
 
 /* ---------------- products (groceries) ---------------- */
 export const products = {
-  async list({ categoryId, q, includeOutOfStock = true } = {}) {
+  async list({ categoryId, q, includeOutOfStock = true, promoOnly = false } = {}) {
+    const promoOn = (await settings.get()).promo_enabled;
     const where = [];
     const params = [];
     if (categoryId) { params.push(categoryId); where.push(`p.category_id = $${params.length}`); }
     if (q) { params.push(`%${q}%`); where.push(`p.name ILIKE $${params.length}`); }
     if (!includeOutOfStock) where.push('p.in_stock = TRUE');
+    if (promoOnly) where.push('p.promo_price IS NOT NULL AND p.promo_price < p.price');
     const { rows } = await query(
       `SELECT p.*, c.name AS category_name FROM products p
        LEFT JOIN categories c ON c.id = p.category_id
@@ -126,7 +170,7 @@ export const products = {
        ORDER BY p.created_at DESC`,
       params
     );
-    return rows;
+    return rows.map((r) => withPromo(r, promoOn));
   },
   async get(id) {
     const { rows } = await query('SELECT * FROM products WHERE id = $1', [id]);
@@ -134,9 +178,9 @@ export const products = {
   },
   async create(d) {
     const { rows } = await query(
-      `INSERT INTO products (category_id, name, description, price, unit, image_url, in_stock)
-       VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7, TRUE)) RETURNING *`,
-      [d.category_id || null, d.name, d.description || null, d.price, d.unit || null, d.image_url || null, d.in_stock]
+      `INSERT INTO products (category_id, name, description, price, unit, image_url, in_stock, promo_price)
+       VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7, TRUE),$8) RETURNING *`,
+      [d.category_id || null, d.name, d.description || null, d.price, d.unit || null, d.image_url || null, d.in_stock, d.promo_price ?? null]
     );
     return rows[0];
   },
@@ -146,9 +190,11 @@ export const products = {
          category_id = COALESCE($2, category_id), name = COALESCE($3, name),
          description = COALESCE($4, description), price = COALESCE($5, price),
          unit = COALESCE($6, unit), image_url = COALESCE($7, image_url),
-         in_stock = COALESCE($8, in_stock)
+         in_stock = COALESCE($8, in_stock),
+         promo_price = CASE WHEN $9 THEN $10::numeric ELSE promo_price END
        WHERE id = $1 RETURNING *`,
-      [id, d.category_id ?? null, d.name ?? null, d.description ?? null, d.price ?? null, d.unit ?? null, d.image_url ?? null, d.in_stock ?? null]
+      [id, d.category_id ?? null, d.name ?? null, d.description ?? null, d.price ?? null, d.unit ?? null, d.image_url ?? null, d.in_stock ?? null,
+        d.promo_price !== undefined, d.promo_price ?? null]
     );
     return rows[0];
   },
@@ -160,21 +206,28 @@ export const products = {
 
 /* ---------------- meals (hot food) ---------------- */
 export const meals = {
-  async listToday() {
+  async get(id) {
+    const { rows } = await query('SELECT * FROM meals WHERE id = $1', [id]);
+    return rows[0];
+  },
+  async listToday({ promoOnly = false } = {}) {
+    const promoOn = (await settings.get()).promo_enabled;
     const { rows } = await query(
-      `SELECT * FROM meals WHERE is_available = TRUE AND (available_date = CURRENT_DATE OR (carry_over = TRUE AND available_date < CURRENT_DATE)) ORDER BY created_at DESC`
+      `SELECT * FROM meals WHERE is_available = TRUE AND (available_date = CURRENT_DATE OR (carry_over = TRUE AND available_date < CURRENT_DATE))
+       ${promoOnly ? 'AND promo_price IS NOT NULL AND promo_price < price' : ''} ORDER BY created_at DESC`
     );
-    return rows;
+    return rows.map((r) => withPromo(r, promoOn));
   },
   async listAll() {
+    const promoOn = (await settings.get()).promo_enabled;
     const { rows } = await query('SELECT * FROM meals ORDER BY available_date DESC, created_at DESC LIMIT 200');
-    return rows;
+    return rows.map((r) => withPromo(r, promoOn));
   },
   async create(d) {
     const { rows } = await query(
-      `INSERT INTO meals (name, description, price, image_url, available_date, is_available, carry_over)
-       VALUES ($1,$2,$3,$4,COALESCE($5, CURRENT_DATE),COALESCE($6, TRUE),COALESCE($7, FALSE)) RETURNING *`,
-      [d.name, d.description || null, d.price, d.image_url || null, d.available_date, d.is_available, d.carry_over]
+      `INSERT INTO meals (name, description, price, image_url, available_date, is_available, carry_over, promo_price)
+       VALUES ($1,$2,$3,$4,COALESCE($5, CURRENT_DATE),COALESCE($6, TRUE),COALESCE($7, FALSE),$8) RETURNING *`,
+      [d.name, d.description || null, d.price, d.image_url || null, d.available_date, d.is_available, d.carry_over, d.promo_price ?? null]
     );
     return rows[0];
   },
@@ -184,9 +237,11 @@ export const meals = {
          name = COALESCE($2, name), description = COALESCE($3, description),
          price = COALESCE($4, price), image_url = COALESCE($5, image_url),
          available_date = COALESCE($6, available_date), is_available = COALESCE($7, is_available),
-         carry_over = COALESCE($8, carry_over)
+         carry_over = COALESCE($8, carry_over),
+         promo_price = CASE WHEN $9 THEN $10::numeric ELSE promo_price END
        WHERE id = $1 RETURNING *`,
-      [id, d.name ?? null, d.description ?? null, d.price ?? null, d.image_url ?? null, d.available_date ?? null, d.is_available ?? null, d.carry_over ?? null]
+      [id, d.name ?? null, d.description ?? null, d.price ?? null, d.image_url ?? null, d.available_date ?? null, d.is_available ?? null, d.carry_over ?? null,
+        d.promo_price !== undefined, d.promo_price ?? null]
     );
     return rows[0];
   },
@@ -203,20 +258,21 @@ export const orders = {
   // Prices are always read from the database, never trusted from the client.
   async create({ userId, customer, items, fulfillment, paymentMethod, location, deliveryZone }) {
     return tx(async (c) => {
+      const promoOn = (await c.query('SELECT promo_enabled FROM site_settings WHERE id = 1')).rows[0]?.promo_enabled === true;
       const priced = [];
       for (const it of items) {
         const qty = Math.max(1, Math.min(99, parseInt(it.qty, 10) || 0));
         if (it.type === 'product') {
-          const { rows } = await c.query('SELECT id, name, price, in_stock FROM products WHERE id = $1', [it.id]);
+          const { rows } = await c.query('SELECT id, name, price, promo_price, in_stock FROM products WHERE id = $1', [it.id]);
           if (!rows[0] || !rows[0].in_stock) throw Object.assign(new Error(`"${rows[0]?.name || 'An item'}" is out of stock`), { status: 400 });
-          priced.push({ type: 'product', id: rows[0].id, name: rows[0].name, price: Number(rows[0].price), qty });
+          priced.push({ type: 'product', id: rows[0].id, name: rows[0].name, price: withPromo(rows[0], promoOn).final_price, qty });
         } else if (it.type === 'meal') {
           const { rows } = await c.query(
-            'SELECT id, name, price FROM meals WHERE id = $1 AND is_available = TRUE AND (available_date = CURRENT_DATE OR (carry_over = TRUE AND available_date < CURRENT_DATE))',
+            'SELECT id, name, price, promo_price FROM meals WHERE id = $1 AND is_available = TRUE AND (available_date = CURRENT_DATE OR (carry_over = TRUE AND available_date < CURRENT_DATE))',
             [it.id]
           );
           if (!rows[0]) throw Object.assign(new Error('A meal in your cart is no longer available today'), { status: 400 });
-          priced.push({ type: 'meal', id: rows[0].id, name: rows[0].name, price: Number(rows[0].price), qty });
+          priced.push({ type: 'meal', id: rows[0].id, name: rows[0].name, price: withPromo(rows[0], promoOn).final_price, qty });
         } else {
           throw Object.assign(new Error('Invalid cart item'), { status: 400 });
         }
@@ -257,6 +313,28 @@ export const orders = {
       return { ...order, items: priced };
     });
   },
+  // Walk-in / phone order typed in by the admin. Already paid and completed; counts toward that day's revenue.
+  async createManual({ items, customerName, date, paymentMethod, note }) {
+    return tx(async (c) => {
+      const subtotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);
+      const { rows } = await c.query(
+        `INSERT INTO orders (order_no, user_id, customer_name, phone, fulfillment, note, payment_method, payment_status,
+                             status, subtotal, delivery_fee, total, source, created_at)
+         VALUES ($1, NULL, $2, NULL, 'pickup', $3, $4, 'paid', 'completed', $5, 0, $5, 'manual',
+                 CASE WHEN $6::date IS NULL OR $6::date = CURRENT_DATE THEN NOW() ELSE ($6::date + TIME '12:00') END)
+         RETURNING *`,
+        [orderNo(), customerName || 'Walk-in', note || null, paymentMethod, subtotal, date || null]
+      );
+      const order = rows[0];
+      for (const i of items) {
+        await c.query(
+          `INSERT INTO order_items (order_id, item_type, item_id, name, unit_price, qty) VALUES ($1,'manual',NULL,$2,$3,$4)`,
+          [order.id, i.name, i.price, i.qty]
+        );
+      }
+      return { ...order, items: items.map((i) => ({ name: i.name, qty: i.qty, unit_price: i.price })) };
+    });
+  },
   async getByNo(no) {
     const { rows } = await query('SELECT * FROM orders WHERE order_no = $1', [no]);
     if (!rows[0]) return null;
@@ -264,7 +342,9 @@ export const orders = {
     return { ...rows[0], items: items.rows };
   },
   async listForUser(userId) {
-    const { rows } = await query('SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
+    const { rows } = await query(
+      `SELECT o.*, (SELECT COUNT(*)::int FROM order_messages m WHERE m.order_id = o.id AND m.sender_role = 'admin' AND m.read_at IS NULL) AS unread_messages
+       FROM orders o WHERE o.user_id = $1 ORDER BY o.created_at DESC`, [userId]);
     return rows;
   },
   async listAll({ status } = {}) {
@@ -277,6 +357,23 @@ export const orders = {
       status ? [status] : []
     );
     return rows;
+  },
+  // All orders placed on one day (YYYY-MM-DD), newest first.
+  async listByDay(day) {
+    const { rows } = await query(
+      `SELECT o.*, COALESCE(json_agg(json_build_object('name', i.name, 'qty', i.qty, 'unit_price', i.unit_price))
+              FILTER (WHERE i.id IS NOT NULL), '[]') AS items
+       FROM orders o LEFT JOIN order_items i ON i.order_id = o.id
+       WHERE o.created_at::date = $1::date
+       GROUP BY o.id ORDER BY o.created_at DESC`,
+      [day]
+    );
+    return rows;
+  },
+  // Permanently removes an order (its items go with it).
+  async remove(id) {
+    const { rows } = await query('DELETE FROM orders WHERE id = $1 RETURNING id', [id]);
+    return rows[0];
   },
   async setStatus(id, status) {
     const { rows } = await query('UPDATE orders SET status = $2 WHERE id = $1 RETURNING *', [id, status]);
@@ -338,6 +435,33 @@ export const stats = {
     );
     return { total_users: Number(rows[0].total_users), signups_month: Number(rows[0].signups_month) };
   },
+  // Revenue per day (cancelled orders excluded), newest first, plus all-time and this-month totals.
+  async revenue(days = 30) {
+    const n = Math.min(Math.max(parseInt(days, 10) || 30, 1), 365);
+    const daily = await query(
+      `SELECT to_char(CURRENT_DATE - g.n, 'YYYY-MM-DD') AS day,
+              COUNT(o.id) AS orders,
+              COALESCE(SUM(o.total), 0) AS revenue,
+              COALESCE(SUM(o.total) FILTER (WHERE o.source = 'manual'), 0) AS manual_revenue
+       FROM generate_series(0, $1::int - 1) AS g(n)
+       LEFT JOIN orders o ON o.created_at::date = CURRENT_DATE - g.n AND o.status <> 'cancelled'
+       GROUP BY g.n ORDER BY g.n ASC`,
+      [n]
+    );
+    const totals = await query(
+      `SELECT COALESCE(SUM(total), 0) AS total_revenue,
+              COUNT(*) AS total_orders,
+              COALESCE(SUM(total) FILTER (WHERE created_at::date = CURRENT_DATE), 0) AS today,
+              COALESCE(SUM(total) FILTER (WHERE date_trunc('month', created_at) = date_trunc('month', NOW())), 0) AS this_month
+       FROM orders WHERE status <> 'cancelled'`
+    );
+    const t = totals.rows[0];
+    return {
+      total_revenue: Number(t.total_revenue), total_orders: Number(t.total_orders),
+      today: Number(t.today), this_month: Number(t.this_month),
+      daily: daily.rows.map((r) => ({ day: r.day, orders: Number(r.orders), revenue: Number(r.revenue), manual_revenue: Number(r.manual_revenue) })),
+    };
+  },
   async overview() {
     const { rows } = await query(
       `SELECT
@@ -347,5 +471,77 @@ export const stats = {
        FROM orders`
     );
     return rows[0];
+  },
+};
+
+// Current prices for cart lines, so a cart saved before promo mode changed shows what will really be charged.
+export async function currentPrices(items) {
+  const promoOn = (await settings.get()).promo_enabled;
+  const out = [];
+  for (const it of (items || []).slice(0, 100)) {
+    const id = parseInt(it.id, 10);
+    if (!Number.isInteger(id)) continue;
+    const table = it.type === 'product' ? 'products' : it.type === 'meal' ? 'meals' : null;
+    if (!table) continue;
+    const { rows } = await query(`SELECT id, price, promo_price FROM ${table} WHERE id = $1`, [id]);
+    if (rows[0]) { const w = withPromo(rows[0], promoOn); out.push({ type: it.type, id, price: w.final_price, original: Number(rows[0].price), on_promo: w.on_promo }); }
+  }
+  return out;
+}
+
+/* ---------------- order messages (shop <-> customer chat) ---------------- */
+export const messages = {
+  // The order a message thread belongs to, only if this person may see it (owner or admin).
+  async orderFor(orderNo, user) {
+    const { rows } = await query('SELECT id, order_no, user_id, customer_name, email, status FROM orders WHERE order_no = $1', [orderNo]);
+    const o = rows[0];
+    if (!o) return { error: 'Order not found', status: 404 };
+    if (user.role !== 'admin' && o.user_id !== user.id) return { error: 'This is not your order', status: 403 };
+    return { order: o };
+  },
+  async thread(orderId, viewerRole) {
+    const other = viewerRole === 'admin' ? 'customer' : 'admin';
+    await query('UPDATE order_messages SET read_at = NOW() WHERE order_id = $1 AND sender_role = $2 AND read_at IS NULL', [orderId, other]);
+    const { rows } = await query('SELECT id, sender_role, body, created_at FROM order_messages WHERE order_id = $1 ORDER BY created_at, id', [orderId]);
+    return rows;
+  },
+  async add(orderId, role, body) {
+    const { rows } = await query(
+      'INSERT INTO order_messages (order_id, sender_role, body) VALUES ($1,$2,$3) RETURNING id, sender_role, body, created_at',
+      [orderId, role, body]
+    );
+    return rows[0];
+  },
+  // Time of the message just before the latest one from the same side (used to avoid emailing on every line).
+  async previousFrom(orderId, role, beforeId) {
+    const { rows } = await query(
+      'SELECT created_at FROM order_messages WHERE order_id = $1 AND sender_role = $2 AND id < $3 ORDER BY id DESC LIMIT 1',
+      [orderId, role, beforeId]
+    );
+    return rows[0]?.created_at || null;
+  },
+  // Number of unread messages waiting for this person (customer: replies from the shop; admin: customer messages).
+  async unreadCount(user) {
+    if (user.role === 'admin') {
+      const { rows } = await query(`SELECT COUNT(*)::int AS n FROM order_messages WHERE sender_role = 'customer' AND read_at IS NULL`);
+      return rows[0].n;
+    }
+    const { rows } = await query(
+      `SELECT COUNT(*)::int AS n FROM order_messages m JOIN orders o ON o.id = m.order_id
+       WHERE o.user_id = $1 AND m.sender_role = 'admin' AND m.read_at IS NULL`, [user.id]);
+    return rows[0].n;
+  },
+  // Admin inbox: every order that has messages, newest conversation first.
+  async inbox() {
+    const { rows } = await query(
+      `SELECT o.id, o.order_no, o.customer_name, o.status,
+              (SELECT body FROM order_messages WHERE order_id = o.id ORDER BY id DESC LIMIT 1) AS last_body,
+              (SELECT sender_role FROM order_messages WHERE order_id = o.id ORDER BY id DESC LIMIT 1) AS last_role,
+              MAX(m.created_at) AS last_at,
+              COUNT(*) FILTER (WHERE m.sender_role = 'customer' AND m.read_at IS NULL)::int AS unread
+       FROM orders o JOIN order_messages m ON m.order_id = o.id
+       GROUP BY o.id ORDER BY MAX(m.created_at) DESC LIMIT 200`
+    );
+    return rows;
   },
 };

@@ -57,7 +57,7 @@ export default function Orders() {
             <li key={o.order_no}>
               <Link to={`/order/${o.order_no}`} className="flex items-center justify-between gap-3 p-4 hover:bg-black/[0.02]">
                 <div className="min-w-0">
-                  <p className="font-semibold">{o.order_no}</p>
+                  <p className="font-semibold">{o.order_no}{o.unread_messages > 0 && <span className="ml-2 rounded-full bg-chili px-2 py-0.5 text-xs font-bold text-white">{o.unread_messages} new {o.unread_messages === 1 ? 'message' : 'messages'}</span>}</p>
                   <p className="text-xs text-black/50">{new Date(o.created_at).toLocaleString()}</p>
                 </div>
                 <div className="shrink-0 text-right">

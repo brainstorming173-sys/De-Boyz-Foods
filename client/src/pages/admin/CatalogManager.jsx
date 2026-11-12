@@ -43,6 +43,38 @@ function ImageField({ value, onChange, onError }) {
   );
 }
 
+// Promo price with a linked "% off" box: type either one and the other is worked out from the normal price.
+function PromoFields({ price, value, onChange }) {
+  const base = Number(price);
+  const promo = value === '' ? null : Number(value);
+  const pct = promo != null && base > 0 && promo < base ? Math.round((1 - promo / base) * 100) : '';
+  const bad = promo != null && base > 0 && promo >= base;
+  return (
+    <div className="rounded-xl bg-black/[0.03] p-3">
+      <p className="text-sm font-semibold">Promo price <span className="font-normal text-black/50">(optional, used only while a promo is ON)</span></p>
+      <div className="mt-2 grid grid-cols-2 gap-3">
+        <div>
+          <label className="label" htmlFor="promo-price">Promo price (GH₵)</label>
+          <input id="promo-price" type="number" min="0" step="0.01" className="field" value={value} onChange={(e) => onChange(e.target.value)} placeholder="e.g. 8" />
+        </div>
+        <div>
+          <label className="label" htmlFor="promo-pct">Or % off</label>
+          <input id="promo-pct" type="number" min="1" max="99" step="1" className="field" value={pct} disabled={!(base > 0)}
+            onChange={(e) => { const v = Number(e.target.value); onChange(e.target.value === '' || !(v > 0) ? '' : String(Math.round(base * (1 - Math.min(v, 99) / 100) * 100) / 100)); }} placeholder="e.g. 20" />
+        </div>
+      </div>
+      {bad && <p role="alert" className="mt-2 text-xs text-chili">The promo price must be lower than the original price.</p>}
+      {promo != null && !bad && base > 0 && <p className="mt-2 text-xs text-black/60">Customers see <strong>{money(promo)}</strong> <span className="line-through">{money(base)}</span> ({pct}% off).</p>}
+    </div>
+  );
+}
+
+const PromoTag = ({ item }) => (item.promo_price == null ? null : (
+  <span className={`ml-1 rounded-full px-2 py-0.5 text-xs font-semibold ${item.on_promo ? 'bg-amber-100 text-amber-800' : 'bg-black/5 text-black/50'}`}>
+    Promo {money(item.promo_price)}{item.price > 0 ? ` (-${Math.round((1 - item.promo_price / item.price) * 100)}%)` : ''}{item.on_promo ? '' : ' · off'}
+  </span>
+));
+
 function Toggle({ checked, onChange, label }) {
   return (
     <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
@@ -59,7 +91,7 @@ function Row({ item, sub, badge, onEdit, onDelete }) {
         {item.image_url && <img src={item.image_url} alt="" className="h-full w-full object-cover" />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="break-words font-semibold leading-snug sm:truncate">{item.name} {badge}</p>
+        <p className="break-words font-semibold leading-snug sm:truncate">{item.name} {badge}<PromoTag item={item} /></p>
         <p className="truncate text-sm text-black/55">{sub}</p>
         <p className="mt-0.5 font-display font-bold sm:hidden">{money(item.price)}</p>
       </div>
@@ -77,7 +109,7 @@ const Pill = ({ children, tone }) => (
 );
 
 /* ---------- Today's meals ---------- */
-const blankMeal = () => ({ name: '', description: '', price: '', image_url: '', available_date: todayStr(), is_available: true, carry_over: false });
+const blankMeal = () => ({ name: '', description: '', price: '', promo_price: '', image_url: '', available_date: todayStr(), is_available: true, carry_over: false });
 
 export function MealsManager({ setError }) {
   const [list, setList] = useState(null);
@@ -88,11 +120,11 @@ export function MealsManager({ setError }) {
   useEffect(() => { load(); }, []);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const edit = (m) => setForm({ ...m, price: String(m.price), description: m.description || '', image_url: m.image_url || '', available_date: String(m.available_date).slice(0, 10) });
+  const edit = (m) => setForm({ ...m, price: String(m.price), promo_price: m.promo_price == null ? '' : String(m.promo_price), description: m.description || '', image_url: m.image_url || '', available_date: String(m.available_date).slice(0, 10) });
 
   async function save(e) {
     e.preventDefault(); setError(''); setSaving(true);
-    const body = { name: form.name.trim(), description: form.description.trim(), price: form.price, image_url: form.image_url, available_date: form.available_date, is_available: form.is_available, carry_over: form.carry_over };
+    const body = { name: form.name.trim(), description: form.description.trim(), price: form.price, promo_price: form.promo_price, image_url: form.image_url, available_date: form.available_date, is_available: form.is_available, carry_over: form.carry_over };
     try {
       form.id ? await api.admin.updateMeal(form.id, body) : await api.admin.createMeal(body);
       setForm(null); await load();
@@ -132,6 +164,7 @@ export function MealsManager({ setError }) {
               <Toggle checked={!!form.carry_over} onChange={(v) => set('carry_over', v)} label="Still available the following days" />
             </div>
           </div>
+          <PromoFields price={form.price} value={form.promo_price} onChange={(v) => set('promo_price', v)} />
           <div><label className="label" htmlFor="m-desc">Description (optional)</label><textarea id="m-desc" rows={2} className="field" value={form.description} onChange={(e) => set('description', e.target.value)} /></div>
           <ImageField value={form.image_url} onChange={(v) => set('image_url', v)} onError={setError} />
           <div className="flex gap-2">
@@ -166,7 +199,7 @@ export function MealsManager({ setError }) {
 }
 
 /* ---------- Groceries ---------- */
-const blankProduct = () => ({ name: '', description: '', price: '', unit: '', category_id: '', image_url: '', in_stock: true });
+const blankProduct = () => ({ name: '', description: '', price: '', promo_price: '', unit: '', category_id: '', image_url: '', in_stock: true });
 
 export function ProductsManager({ setError }) {
   const [list, setList] = useState(null);
@@ -179,7 +212,7 @@ export function ProductsManager({ setError }) {
   useEffect(() => { load(); loadCats(); }, []);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const edit = (p) => setForm({ ...p, price: String(p.price), description: p.description || '', unit: p.unit || '', image_url: p.image_url || '', category_id: p.category_id ? String(p.category_id) : '' });
+  const edit = (p) => setForm({ ...p, price: String(p.price), promo_price: p.promo_price == null ? '' : String(p.promo_price), description: p.description || '', unit: p.unit || '', image_url: p.image_url || '', category_id: p.category_id ? String(p.category_id) : '' });
 
   async function addCategory() {
     const name = window.prompt('New category name (e.g. Vegetables)');
@@ -190,7 +223,7 @@ export function ProductsManager({ setError }) {
 
   async function save(e) {
     e.preventDefault(); setError(''); setSaving(true);
-    const body = { name: form.name.trim(), description: form.description.trim(), price: form.price, unit: form.unit.trim(), category_id: form.category_id || null, image_url: form.image_url, in_stock: form.in_stock };
+    const body = { name: form.name.trim(), description: form.description.trim(), price: form.price, promo_price: form.promo_price, unit: form.unit.trim(), category_id: form.category_id || null, image_url: form.image_url, in_stock: form.in_stock };
     try {
       form.id ? await api.admin.updateProduct(form.id, body) : await api.admin.createProduct(body);
       setForm(null); await load();
@@ -233,6 +266,7 @@ export function ProductsManager({ setError }) {
               </div>
             </div>
           </div>
+          <PromoFields price={form.price} value={form.promo_price} onChange={(v) => set('promo_price', v)} />
           <div><label className="label" htmlFor="p-desc">Description (optional)</label><textarea id="p-desc" rows={2} className="field" value={form.description} onChange={(e) => set('description', e.target.value)} /></div>
           <ImageField value={form.image_url} onChange={(v) => set('image_url', v)} onError={setError} />
           <Toggle checked={form.in_stock} onChange={(v) => set('in_stock', v)} label="In stock" />

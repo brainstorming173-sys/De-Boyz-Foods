@@ -28,6 +28,7 @@ export default function Cart() {
   const [error, setError] = useState('');
 
   useEffect(() => { api.storeSettings().then(setSettings).catch(() => {}); }, []);
+  useEffect(() => { cart.refreshPrices(); }, []); // show today's prices, promo or not
   useEffect(() => {
     api.paymentNetworks().then((list) => setNetworks(Object.fromEntries(list.map((n) => [n.id, n.available])))).catch(() => {});
   }, []);
@@ -44,6 +45,7 @@ export default function Cart() {
   // Groceries add the constant fee, meals add the area fee; a mixed order pays both.
   const fee = fulfillment === 'pickup' ? 0 : (hasGroceries ? settings.groceryDeliveryFee : 0) + (hasMeals && zoneRow ? zoneRow.fee : 0);
   const total = cart.subtotal + fee;
+  const savings = cart.items.reduce((s, i) => s + (i.original_price > i.price ? (i.original_price - i.price) * i.qty : 0), 0);
 
   const payNumber = momoPhone || form.phone;
   const numberOk = !!normalizePhone(payNumber);
@@ -117,7 +119,7 @@ export default function Cart() {
             <li key={`${i.type}-${i.id}`} className="grid grid-cols-[1fr_auto] items-start gap-x-3 gap-y-2 p-3 sm:flex sm:items-center sm:gap-4 sm:p-4">
               <div className="min-w-0 sm:flex-1">
                 <p className="break-words font-bold leading-snug sm:truncate">{i.name}</p>
-                <p className="text-sm text-black/60">{money(i.price)}{i.unit ? ` · ${i.unit}` : ''}</p>
+                <p className="text-sm text-black/60">{money(i.price)}{i.original_price > i.price && <span className="ml-1.5 text-black/40 line-through">{money(i.original_price)}</span>}{i.unit ? ` · ${i.unit}` : ''}</p>
               </div>
               <button type="button" onClick={() => cart.remove(i)} className="grid h-9 w-9 place-items-center text-black/40 hover:text-chili sm:order-last sm:h-auto sm:w-auto" aria-label={`Remove ${i.name}`}><Trash2 className="h-4 w-4" /></button>
               <div className="col-span-2 flex items-center justify-between gap-3 sm:contents">
@@ -192,6 +194,7 @@ export default function Cart() {
 
         <dl className="space-y-1 border-t border-black/5 pt-4 text-sm">
           <div className="flex justify-between"><dt className="text-black/60">Subtotal</dt><dd>{money(cart.subtotal)}</dd></div>
+          {savings > 0 && <div className="flex justify-between font-semibold text-leaf"><dt>You save</dt><dd>{money(savings)}</dd></div>}
           <div className="flex justify-between"><dt className="text-black/60">Delivery</dt><dd>{fulfillment === 'pickup' ? 'Free' : needsZone && !zoneRow ? 'Choose area' : money(fee)}</dd></div>
           <div className="flex justify-between pt-2 font-display text-lg font-bold"><dt>Total</dt><dd>{money(total)}</dd></div>
         </dl>

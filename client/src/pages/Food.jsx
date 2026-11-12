@@ -1,22 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CalendarDays, UtensilsCrossed } from 'lucide-react';
 import { api } from '../api.js';
 import ItemCard from '../components/ItemCard.jsx';
 import Loading from '../components/Loading.jsx';
+import { PromoStrip } from '../components/PromoBanner.jsx';
+import { usePromo } from '../context/PromoContext.jsx';
 
 export default function Food() {
   const [meals, setMeals] = useState(null);
   const [q, setQ] = useState('');
-  useEffect(() => { api.mealsToday().then(setMeals).catch(() => setMeals([])); }, []);
+  const { promo } = usePromo();
+  const [params, setParams] = useSearchParams();
+  const dealsOnly = params.get('promo') === '1' && promo.enabled;
+  useEffect(() => { api.mealsToday().then(setMeals).catch(() => setMeals([])); }, [promo.enabled, promo.name]);
 
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }).replace(',', '');
   const shown = useMemo(
-    () => (meals || []).filter((m) => m.name.toLowerCase().includes(q.trim().toLowerCase())),
-    [meals, q]
+    () => (meals || []).filter((m) => m.name.toLowerCase().includes(q.trim().toLowerCase()) && (!dealsOnly || m.on_promo)),
+    [meals, q, dealsOnly]
   );
 
   return (
     <div className="mx-auto max-w-[1104px] px-3 pb-12 pt-6 sm:px-6 sm:pb-16 sm:pt-9">
+      <PromoStrip />
       <span className="inline-flex items-center gap-2 rounded-full bg-chili-soft px-4 py-2 font-semibold text-chili">
         <CalendarDays className="h-4 w-4" /> {today}
       </span>
@@ -30,6 +37,13 @@ export default function Food() {
         aria-label="Search today's meals"
         className="mt-5 w-full rounded-full border border-black/10 bg-white px-5 py-3 text-base sm:mt-7 sm:px-6 sm:py-4 outline-none placeholder:text-black/40 focus:ring-2 focus:ring-chili/30"
       />
+
+      {promo.enabled && (
+        <button type="button" onClick={() => { const n = new URLSearchParams(params); dealsOnly ? n.delete('promo') : n.set('promo', '1'); setParams(n); }}
+          className={`mt-4 rounded-full px-5 py-2 text-sm font-semibold ${dealsOnly ? 'bg-chili text-white' : 'border border-black/10 bg-white hover:bg-black/5'}`}>
+          {dealsOnly ? '✓ ' : ''}Deals only
+        </button>
+      )}
 
       <div className="mt-6">
         {meals === null ? (

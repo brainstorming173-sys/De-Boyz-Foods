@@ -4,11 +4,15 @@ import { useSearchParams } from 'react-router-dom';
 import { SlidersHorizontal, Check, Search } from 'lucide-react';
 import { api } from '../api.js';
 import ItemCard from '../components/ItemCard.jsx';
+import { PromoStrip } from '../components/PromoBanner.jsx';
+import { usePromo } from '../context/PromoContext.jsx';
 
 export default function Groceries() {
   const [params, setParams] = useSearchParams();
   const q = params.get('q') || '';
   const category = params.get('category') || '';
+  const { promo } = usePromo();
+  const dealsOnly = params.get('promo') === '1' && promo.enabled;
   const [inStockOnly, setInStockOnly] = useState(true);
   const [cats, setCats] = useState([]);
   const [items, setItems] = useState(null);
@@ -22,12 +26,18 @@ export default function Groceries() {
     if (q) p.q = q;
     if (category) p.category = category;
     if (inStockOnly) p.in_stock = '1';
+    if (dealsOnly) p.promo = '1';
     api.products(p).then(setItems).catch((e) => { setError(e.message); setItems([]); });
-  }, [q, category, inStockOnly]);
+  }, [q, category, inStockOnly, dealsOnly, promo.name]);
 
   const pick = (id) => {
     const next = new URLSearchParams(params);
     id ? next.set('category', id) : next.delete('category');
+    setParams(next);
+  };
+  const toggleDeals = () => {
+    const next = new URLSearchParams(params);
+    dealsOnly ? next.delete('promo') : next.set('promo', '1');
     setParams(next);
   };
   const chip = (active) =>
@@ -35,6 +45,7 @@ export default function Groceries() {
 
   return (
     <div className="px-3 pb-12 pt-6 sm:px-6 sm:pt-8">
+      <PromoStrip />
       <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Groceries</h1>
       <p className="mt-1 text-base text-black/65 sm:text-lg">
         {q ? <>Results for &ldquo;{q}&rdquo;</> : 'Fresh produce and everyday essentials, delivered to you.'}
@@ -68,6 +79,7 @@ export default function Groceries() {
         </label>
 
         <div className="-mx-3 flex w-[calc(100%+1.5rem)] gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:w-auto sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+          {promo.enabled && <button className={chip(dealsOnly)} onClick={toggleDeals}>{dealsOnly ? '✓ ' : ''}Deals only</button>}
           <button className={chip(!category)} onClick={() => pick('')}>All</button>
           {cats.map((c) => (
             <button key={c.id} className={chip(String(c.id) === category)} onClick={() => pick(c.id)}>{c.name}</button>

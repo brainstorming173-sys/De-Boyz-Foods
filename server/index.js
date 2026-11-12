@@ -12,6 +12,7 @@ import catalogRoutes from './routes/catalog.js';
 import orderRoutes from './routes/orders.js';
 import paymentRoutes from './routes/payments.js';
 import uploadRoutes from './routes/uploads.js';
+import messageRoutes from './routes/messages.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -51,6 +52,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/api/messages', messageRoutes);
 app.use('/api', catalogRoutes);
 app.use('/api', notFound);
 

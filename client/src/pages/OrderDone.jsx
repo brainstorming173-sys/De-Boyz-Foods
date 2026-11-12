@@ -3,6 +3,7 @@ import Loading from '../components/Loading.jsx';
 import { Link, useParams } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { api, money } from '../api.js';
+import OrderChat from '../components/OrderChat.jsx';
 
 const LABEL = { new: 'Received', confirmed: 'Confirmed', preparing: 'Preparing', out_for_delivery: 'On the way', completed: 'Completed', cancelled: 'Cancelled' };
 
@@ -74,6 +75,8 @@ export default function OrderDone() {
         <li className="flex justify-between p-4 text-sm text-black/60"><span>Delivery</span><span>{Number(order.delivery_fee) === 0 ? 'Free' : money(order.delivery_fee)}</span></li>
         <li className="flex justify-between p-4 font-display text-lg font-bold"><span>Total</span><span>{money(order.total)}</span></li>
       </ul>
+
+      <div className="mt-8"><OrderChat orderNo={order.order_no} /></div>
 
       <div className="mt-8 text-center"><Link to="/" className="btn-green">Back to home</Link></div>
     </div>

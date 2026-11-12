@@ -1,10 +1,13 @@
 import { Plus, Minus } from 'lucide-react';
 import { money } from '../api.js';
 import { useCart } from '../context/CartContext.jsx';
+import { usePromo } from '../context/PromoContext.jsx';
 
 // Shared card for groceries (type="product") and hot meals (type="meal").
 export default function ItemCard({ item, type, accent = 'green' }) {
   const cart = useCart();
+  const { theme } = usePromo();
+  const deal = !!(item.on_promo && theme);
   const line = cart.items.find((c) => c.type === type && c.id === item.id);
   const soldOut = type === 'product' && !item.in_stock;
   const tone = accent === 'red' ? 'btn-red' : 'btn-green';
@@ -12,7 +15,12 @@ export default function ItemCard({ item, type, accent = 'green' }) {
 
   return (
     <article className="flex flex-col overflow-hidden rounded-2xl border border-black/5 bg-white transition hover:shadow-card">
-      <div className="aspect-[4/3] bg-[#F1F0EE] sm:aspect-square">
+      <div className="relative aspect-[4/3] bg-[#F1F0EE] sm:aspect-square">
+        {deal && item.discount_percent > 0 && (
+          <span className="absolute left-2 top-2 z-10 rounded-full px-2.5 py-1 font-display text-xs font-extrabold shadow sm:text-sm" style={{ background: theme.gradient, color: theme.text }}>
+            <span style={{ color: theme.accent }}>-{item.discount_percent}%</span>
+          </span>
+        )}
         {item.image_url ? (
           <img src={item.image_url} alt={item.name} loading="lazy" className="h-full w-full object-cover" />
         ) : (
@@ -26,7 +34,14 @@ export default function ItemCard({ item, type, accent = 'green' }) {
         {item.description && <p className="mt-2 line-clamp-2 text-sm text-black/65 sm:mt-3 sm:line-clamp-none sm:text-base">{item.description}</p>}
 
         <div className="mt-auto flex flex-col gap-3 pt-3 sm:flex-row sm:items-center sm:justify-between sm:pt-5">
-          <span className="font-display text-xl font-bold sm:text-2xl">{money(item.price)}</span>
+          {deal ? (
+            <span className="flex flex-wrap items-baseline gap-x-2 leading-tight sm:flex-col sm:gap-0">
+              <span className="font-display text-xl font-bold sm:text-2xl" style={{ color: theme.deal }}>{money(item.final_price)}</span>
+              <span className="text-sm text-black/45 line-through">{money(item.price)}</span>
+            </span>
+          ) : (
+            <span className="font-display text-xl font-bold sm:text-2xl">{money(item.price)}</span>
+          )}
           {soldOut ? (
             <span className="text-sm font-medium text-chili">Out of stock</span>
           ) : line ? (

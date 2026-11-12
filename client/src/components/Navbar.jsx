@@ -4,6 +4,9 @@ import { Search, MapPin, ShoppingCart, User, LogOut, LayoutDashboard, ClipboardL
 import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { money } from '../api.js';
+import { useUnread } from '../hooks/useUnread.js';
+
+const Dot = ({ n }) => (n > 0 ? <span className="absolute -right-1 -top-1 grid h-5 min-w-[1.25rem] place-items-center rounded-full bg-chili px-1 text-[11px] font-bold leading-none text-white" aria-label={`${n} unread messages`}>{n > 9 ? '9+' : n}</span> : null);
 
 const AREA = 'Koforidua, Ghana'; // TODO: make this a user-selectable delivery area
 
@@ -39,6 +42,7 @@ export default function Navbar() {
   const { subtotal, count } = useCart();
   const { user, isAdmin, logout } = useAuth();
   const nav = useNavigate();
+  const unread = useUnread();
   const [q, setQ] = useState('');
 
   const submit = (e) => {
@@ -68,9 +72,9 @@ export default function Navbar() {
             <MapPin className="h-5 w-5 shrink-0 text-leaf" /> <span className="truncate">Deliver to {AREA}</span>
           </span>
 
-          {isAdmin && <Link to="/admin" className="btn-ghost hidden sm:inline-flex"><LayoutDashboard className="h-4 w-4" /> Admin</Link>}
-          {isAdmin && <Link to="/admin" className="btn-ghost h-10 w-10 p-0 sm:hidden" aria-label="Admin"><LayoutDashboard className="h-4 w-4" /></Link>}
-          <Link to="/orders" className="btn-ghost h-10 w-10 p-0 sm:h-auto sm:w-auto sm:px-3" aria-label="Track orders" title="Track orders"><ClipboardList className="h-4 w-4" /><span className="hidden sm:inline">Orders</span></Link>
+          {isAdmin && <Link to="/admin" className="btn-ghost relative hidden sm:inline-flex"><LayoutDashboard className="h-4 w-4" /> Admin<Dot n={unread} /></Link>}
+          {isAdmin && <Link to="/admin" className="btn-ghost relative h-10 w-10 p-0 sm:hidden" aria-label="Admin"><LayoutDashboard className="h-4 w-4" /><Dot n={unread} /></Link>}
+          <Link to="/orders" className="btn-ghost relative h-10 w-10 p-0 sm:h-auto sm:w-auto sm:px-3" aria-label="Track orders" title="Track orders"><ClipboardList className="h-4 w-4" /><span className="hidden sm:inline">Orders</span>{!isAdmin && <Dot n={unread} />}</Link>
           {user ? (
             <button onClick={logout} className="btn-ghost h-10 w-10 p-0 sm:h-auto sm:w-auto sm:px-3" aria-label="Sign out" title={`Signed in as ${user.name}`}><LogOut className="h-4 w-4" /></button>
           ) : (

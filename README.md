@@ -71,3 +71,17 @@ Telecel and AirtelTigo have no open collections API like MTN's, so these two are
 - Prices are always re-read from the database at checkout; the client never sets them.
 - An MTN payment only counts as paid after the server asks MTN directly and the amount and currency match. Telecel and AirtelTigo payments only count once an admin marks them paid.
 - Only one `.env` at the project root is used by both the API and Vite (`VITE_` vars).
+
+## Promo events (Black Friday, Christmas...)
+
+Admin > **Promo** tab: one switch turns an event on or off.
+
+- **ON**: an event bar and banner appear (with your event name and description), the page gets the event colours, and every item that has a promo price shows the new price, the old price crossed out and a `-X%` badge. Orders are always priced on the server, so the promo price is what the customer pays.
+- **OFF**: all of that disappears and the site is exactly as before. The event name/description stay saved, so next time just switch on and edit.
+- Set an item's promo price in Admin > Groceries / Today's meals > Edit (type the promo price or the % off). **Clear all promo prices** (Promo tab) starts a fresh event.
+
+## Messages
+
+Customers chat with you on their order page (`/order/DB-XXXXXX`, signed in). You see all chats in Admin > **Messages**, or tap **Message customer** on any order. Unread counts show as a red badge in the navbar and the admin tabs, and an email notification goes out (at most one every 10 minutes per conversation).
+
+After pulling this update run `npm run db:schema` once (safe to re-run) to add the new tables and columns.

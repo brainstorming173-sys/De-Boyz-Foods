@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /cart
+Disallow: /pay/
+Disallow: /order/
+Disallow: /orders
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+
+Sitemap: https://de-boyzfoods.com/sitemap.xml

@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
 import Loading from '../../components/Loading.jsx';
-import { Navigation } from 'lucide-react';
+import { Navigation, Trash2, MessageCircle } from 'lucide-react';
 import { api, money } from '../../api.js';
 import { MealsManager, ProductsManager } from './CatalogManager.jsx';
 import UsersList from './UsersList.jsx';
+import ManualOrder from './ManualOrder.jsx';
+import Revenue from './Revenue.jsx';
+import PromoManager from './PromoManager.jsx';
+import MessagesPanel from './MessagesPanel.jsx';
+import { usePromo } from '../../context/PromoContext.jsx';
 
 const STATUSES = ['new', 'confirmed', 'preparing', 'out_for_delivery', 'completed', 'cancelled'];
 const PAY = { momo_now: 'Mobile money (pay now)', momo: 'MoMo on delivery', cash: 'Cash' };
@@ -15,12 +20,43 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [orders, setOrders] = useState(null);
   const [error, setError] = useState('');
+  const { promo } = usePromo();
+  const [chatOrder, setChatOrder] = useState(null); // order number to open in the Messages tab
+  const [unread, setUnread] = useState(0);
 
   const load = () => {
     api.admin.stats().then(setStats).catch((e) => setError(e.message));
     api.admin.orders().then(setOrders).catch((e) => setError(e.message));
   };
   useEffect(load, []);
+  useEffect(() => {
+    const poll = () => api.unreadMessages().then((r) => setUnread(r.unread || 0)).catch(() => {});
+    poll();
+    const t = setInterval(poll, 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  const openChat = (o) => { setChatOrder(o.order_no); setTab('messages'); };
+  const chatBtn = (o) => (o.user_id && o.source !== 'manual'
+    ? <button onClick={() => openChat(o)} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-leaf"><MessageCircle className="h-3.5 w-3.5" /> Message customer</button>
+    : null);
+
+  function addManual(order) {
+    // Newest first by date, so a back-dated order lands in the right place in the list.
+    setOrders((cur) => [order, ...(cur || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+    api.admin.stats().then(setStats).catch(() => {}); // revenue today updates right away
+  }
+
+  // Permanently delete an order (asks first). Returns true when it was deleted.
+  async function deleteOrder(o) {
+    if (!window.confirm(`Delete order ${o.order_no} (${money(o.total)}) for good? Its money will be taken off that day's revenue.`)) return false;
+    try {
+      await api.admin.deleteOrder(o.id);
+      setOrders((cur) => (cur || []).filter((x) => x.id !== o.id));
+      api.admin.stats().then(setStats).catch(() => {});
+      return true;
+    } catch (e) { setError(e.message); return false; }
+  }
 
   async function setStatus(id, status) {
     try {
@@ -53,7 +89,7 @@ export default function Dashboard() {
   };
 
   // Every mobile money payment is confirmed by hand: shows the customer's transaction ID and the confirm / reject buttons.
-  const manualPay = (o) => o.payment_method !== 'momo_now' ? (
+  const manualPay = (o) => o.source === 'manual' ? null : o.payment_method !== 'momo_now' ? (
     // Cash / MoMo on delivery: mark it paid once the customer has paid the rider or at pickup.
     <div className="mt-2 text-xs">
       {o.payment_status === 'paid'
@@ -75,8 +111,11 @@ export default function Dashboard() {
     </div>
   );
 
-  const tabBtn = (id, label) => (
-    <button onClick={() => setTab(id)} className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold sm:px-5 ${tab === id ? 'bg-leaf text-white' : 'bg-white ring-1 ring-black/10 hover:bg-black/5'}`}>{label}</button>
+  const tabBtn = (id, label, badge) => (
+    <button onClick={() => { setTab(id); if (id !== 'messages') setChatOrder(null); }} className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold sm:px-5 ${tab === id ? 'bg-leaf text-white' : 'bg-white ring-1 ring-black/10 hover:bg-black/5'}`}>
+      {label}{badge > 0 && <span className="ml-1.5 rounded-full bg-chili px-1.5 py-0.5 text-[11px] font-bold text-white">{badge}</span>}
+      {id === 'promo' && promo.enabled && <span className="ml-1.5 rounded-full bg-white/90 px-1.5 py-0.5 text-[11px] font-bold text-leaf">ON</span>}
+    </button>
   );
 
   return (
@@ -93,11 +132,12 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="-mx-3 mt-6 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:mt-8 sm:px-0">{tabBtn('orders', 'Orders')}{tabBtn('meals', 'Today\'s meals')}{tabBtn('products', 'Groceries')}{tabBtn('users', 'Users')}</div>
+      <div className="-mx-3 mt-6 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:mt-8 sm:px-0">{tabBtn('orders', 'Orders')}{tabBtn('messages', 'Messages', unread)}{tabBtn('promo', 'Promo')}{tabBtn('revenue', 'Revenue')}{tabBtn('meals', 'Today\'s meals')}{tabBtn('products', 'Groceries')}{tabBtn('users', 'Users')}</div>
       {error && <p role="alert" className="mt-4 text-chili">{error}</p>}
 
       {tab === 'orders' && (
         <>
+        <ManualOrder onCreated={addManual} setError={setError} />
         {/* Phones: one card per order */}
         <ul className="mt-5 space-y-3 md:hidden">
           {orders === null && <li className="rounded-2xl border border-black/5 bg-white"><Loading message="Loading orders..." className="py-8" /></li>}
@@ -106,7 +146,7 @@ export default function Dashboard() {
             <li key={o.id} className="rounded-2xl border border-black/5 bg-white p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-display font-bold">{o.order_no}</p>
+                  <p className="font-display font-bold">{o.order_no}{o.source === 'manual' && <span className="ml-2 rounded-full bg-black/5 px-2 py-0.5 text-xs font-semibold text-black/60">Walk-in / phone</span>}</p>
                   <p className="text-xs text-black/50">{new Date(o.created_at).toLocaleString()}</p>
                 </div>
                 <p className="shrink-0 font-display text-lg font-bold">{money(o.total)}</p>
@@ -115,8 +155,8 @@ export default function Dashboard() {
               <div className="mt-3 text-sm">
                 <p className="font-semibold">{o.customer_name}</p>
                 {o.email && <p className="break-all text-xs text-black/50">{o.email}</p>}
-                <a href={`tel:${o.phone}`} className="text-leaf underline">{o.phone}</a>
-                <p className="break-words text-black/60">{o.fulfillment === 'pickup' ? 'Pickup' : o.address}</p>
+                {o.phone && <a href={`tel:${o.phone}`} className="text-leaf underline">{o.phone}</a>}
+                <p className="break-words text-black/60">{o.source === 'manual' ? 'In person / phone' : o.fulfillment === 'pickup' ? 'Pickup' : o.address}</p>
                 {directions(o)}
               </div>
 
@@ -125,7 +165,7 @@ export default function Dashboard() {
               </ul>
 
               <p className="mt-3 text-sm">
-                {PAY[o.payment_method]} <span className="text-xs text-black/50">({o.payment_status})</span>
+                {o.source === 'manual' ? (o.payment_method === 'momo' ? 'Mobile money' : 'Cash') : PAY[o.payment_method]} <span className="text-xs text-black/50">({o.payment_status})</span>
                 {o.payment_method === 'momo_now' && NETWORK[o.payment_network] && <span className="text-xs text-black/50"> · {NETWORK[o.payment_network]}</span>}
               </p>
               {manualPay(o)}
@@ -133,6 +173,8 @@ export default function Dashboard() {
               <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="field mt-3 py-2.5" aria-label={`Status for ${o.order_no}`}>
                 {STATUSES.map((s) => <option key={s} value={s}>{LABEL[s]}</option>)}
               </select>
+              <button onClick={() => deleteOrder(o)} className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-chili"><Trash2 className="h-3.5 w-3.5" /> Delete order</button>
+              <div>{chatBtn(o)}</div>
             </li>
           ))}
         </ul>
@@ -148,15 +190,17 @@ export default function Dashboard() {
               {orders?.length === 0 && <tr><td className="p-6 text-black/60" colSpan={6}>No orders yet.</td></tr>}
               {orders?.map((o) => (
                 <tr key={o.id} className="align-top">
-                  <td className="p-4 font-semibold">{o.order_no}<div className="text-xs font-normal text-black/50">{new Date(o.created_at).toLocaleString()}</div></td>
-                  <td className="p-4">{o.customer_name}{o.email && <div className="break-all text-xs text-black/50">{o.email}</div>}<div className="text-xs text-black/50">{o.phone}</div><div className="text-xs text-black/50">{o.fulfillment === 'pickup' ? 'Pickup' : o.address}</div>{directions(o)}</td>
+                  <td className="p-4 font-semibold">{o.order_no}{o.source === 'manual' && <span className="ml-2 rounded-full bg-black/5 px-2 py-0.5 text-xs font-semibold text-black/60">Walk-in / phone</span>}<div className="text-xs font-normal text-black/50">{new Date(o.created_at).toLocaleString()}</div></td>
+                  <td className="p-4">{o.customer_name}{o.email && <div className="break-all text-xs text-black/50">{o.email}</div>}{o.phone && <div className="text-xs text-black/50">{o.phone}</div>}<div className="text-xs text-black/50">{o.source === 'manual' ? 'In person / phone' : o.fulfillment === 'pickup' ? 'Pickup' : o.address}</div>{directions(o)}</td>
                   <td className="p-4">{o.items.map((i, n) => <div key={n}>{i.qty} &times; {i.name}</div>)}</td>
                   <td className="p-4 font-semibold">{money(o.total)}</td>
-                  <td className="p-4">{PAY[o.payment_method]} <span className="text-xs text-black/50">({o.payment_status})</span>{o.payment_method === 'momo_now' && NETWORK[o.payment_network] && <div className="text-xs text-black/50">{NETWORK[o.payment_network]}</div>}{manualPay(o)}</td>
+                  <td className="p-4">{o.source === 'manual' ? (o.payment_method === 'momo' ? 'Mobile money' : 'Cash') : PAY[o.payment_method]} <span className="text-xs text-black/50">({o.payment_status})</span>{o.payment_method === 'momo_now' && NETWORK[o.payment_network] && <div className="text-xs text-black/50">{NETWORK[o.payment_network]}</div>}{manualPay(o)}</td>
                   <td className="p-4">
                     <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="field py-1.5" aria-label={`Status for ${o.order_no}`}>
                       {STATUSES.map((s) => <option key={s} value={s}>{LABEL[s]}</option>)}
                     </select>
+                    <button onClick={() => deleteOrder(o)} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-chili"><Trash2 className="h-3.5 w-3.5" /> Delete</button>
+                    <div>{chatBtn(o)}</div>
                   </td>
                 </tr>
               ))}
@@ -166,7 +210,12 @@ export default function Dashboard() {
         </>
       )}
 
+      {tab === 'revenue' && <Revenue setError={setError} onOrderAdded={addManual} onDelete={deleteOrder} />}
+
       {tab === 'users' && <UsersList />}
+
+      {tab === 'promo' && <PromoManager setError={setError} />}
+      {tab === 'messages' && <MessagesPanel openOrderNo={chatOrder} setError={setError} onChange={setUnread} />}
 
       {tab === 'meals' && <MealsManager setError={setError} />}
       {tab === 'products' && <ProductsManager setError={setError} />}

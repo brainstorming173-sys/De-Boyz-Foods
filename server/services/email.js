@@ -161,3 +161,29 @@ export async function sendOrderReceipt(order) {
     }),
   });
 }
+
+/* ---------------- order messages ---------------- */
+const msgShell = (heading, body, link, cta) => orderEmailShell({
+  title: 'New message',
+  heading,
+  body: `<div style="background:#f3f4f6;border-radius:10px;padding:14px 16px;margin:0 0 18px;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(body)}</div>
+    <p style="margin:0"><a href="${link}" style="display:inline-block;background:#0b6b2e;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none;font-size:14px">${cta}</a></p>`,
+});
+
+// To the customer: the shop replied about their order.
+export const sendMessageToCustomer = ({ to, orderNo, body }) => send({
+  to,
+  subject: `New message about your order #${orderNo}`,
+  html: msgShell(`De-Boyz Foods sent you a message about order #${orderNo}`, body, `${config.clientOrigin}/order/${orderNo}`, 'Open and reply'),
+});
+
+// To the shop: the customer wrote.
+export const sendMessageToShop = ({ orderNo, customerName, body }) => {
+  const to = config.orderNotifyEmails;
+  if (!to.length) return Promise.resolve(false);
+  return send({
+    to,
+    subject: `${customerName} messaged you about order #${orderNo}`,
+    html: msgShell(`${customerName} sent a message about order #${orderNo}`, body, `${config.clientOrigin}/admin`, 'Open admin messages'),
+  });
+};

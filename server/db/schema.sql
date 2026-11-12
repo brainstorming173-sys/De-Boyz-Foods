@@ -118,3 +118,38 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users (google_id) WHERE
 
 -- Meals that stay on the menu on following days until the admin turns it off. Safe to re-run.
 ALTER TABLE meals ADD COLUMN IF NOT EXISTS carry_over BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Walk-in / phone orders entered by hand in the admin. Safe to re-run.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'online';
+ALTER TABLE orders ALTER COLUMN phone DROP NOT NULL;
+ALTER TABLE order_items ALTER COLUMN item_id DROP NOT NULL;
+ALTER TABLE order_items DROP CONSTRAINT IF EXISTS order_items_item_type_check;
+ALTER TABLE order_items ADD CONSTRAINT order_items_item_type_check CHECK (item_type IN ('product', 'meal', 'manual'));
+
+-- Promo / event mode (Black Friday, Christmas...). One settings row, edited from the admin. Safe to re-run.
+CREATE TABLE IF NOT EXISTS site_settings (
+  id                 INTEGER PRIMARY KEY CHECK (id = 1),
+  promo_enabled      BOOLEAN NOT NULL DEFAULT FALSE,
+  promo_name         TEXT NOT NULL DEFAULT '',
+  promo_description  TEXT NOT NULL DEFAULT '',
+  promo_theme        TEXT NOT NULL DEFAULT 'black_friday',
+  promo_color_a      TEXT NOT NULL DEFAULT '#111111',
+  promo_color_b      TEXT NOT NULL DEFAULT '#F5B301',
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+INSERT INTO site_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- Promo price per item. Only used while promo mode is ON. NULL = no promo price. Safe to re-run.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS promo_price NUMERIC(10,2) CHECK (promo_price IS NULL OR promo_price >= 0);
+ALTER TABLE meals    ADD COLUMN IF NOT EXISTS promo_price NUMERIC(10,2) CHECK (promo_price IS NULL OR promo_price >= 0);
+
+-- In-site messaging: the shop and the customer chat about an order. Safe to re-run.
+CREATE TABLE IF NOT EXISTS order_messages (
+  id           SERIAL PRIMARY KEY,
+  order_id     INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  sender_role  TEXT NOT NULL CHECK (sender_role IN ('admin', 'customer')),
+  body         TEXT NOT NULL,
+  read_at      TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_order_messages_order ON order_messages(order_id, created_at);

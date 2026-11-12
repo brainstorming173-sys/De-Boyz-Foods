@@ -1,9 +1,11 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import Navbar from './components/Navbar.jsx';
+import { PromoBar } from './components/PromoBanner.jsx';
 import Loading from './components/Loading.jsx';
 import Footer from './components/Footer.jsx';
 import PhonePrompt from './components/PhonePrompt.jsx';
+import WelcomeGate from './components/WelcomeGate.jsx';
 import Home from './pages/Home.jsx';
 import Groceries from './pages/Groceries.jsx';
 import Food from './pages/Food.jsx';
@@ -37,6 +39,7 @@ export default function App() {
   return (
     <div className="flex min-h-screen flex-col">
       <ScrollTop />
+      <PromoBar />
       <Navbar />
       <main className="flex-1">
         <Routes>
@@ -57,6 +60,7 @@ export default function App() {
         </Routes>
       </main>
       <Footer />
+      <WelcomeGate />
       <PhonePrompt />
     </div>
   );

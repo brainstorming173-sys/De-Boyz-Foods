@@ -44,7 +44,14 @@ export const api = {
   // catalog
   categories: () => request('/categories'),
   products: (params = {}) => request(`/products?${new URLSearchParams(params)}`),
-  mealsToday: () => request('/meals/today'),
+  mealsToday: (params = {}) => request(`/meals/today?${new URLSearchParams(params)}`),
+  promo: () => request('/promo'),
+  cartPrices: (items) => request('/cart/prices', { method: 'POST', body: { items } }),
+
+  // in-site messaging (shop <-> customer, per order)
+  unreadMessages: () => request('/messages/unread'),
+  orderMessages: (orderNo) => request(`/messages/order/${encodeURIComponent(orderNo)}`),
+  sendOrderMessage: (orderNo, body) => request(`/messages/order/${encodeURIComponent(orderNo)}`, { method: 'POST', body: { body } }),
 
   // orders & payments
   storeSettings: () => request('/orders/settings'),
@@ -58,9 +65,17 @@ export const api = {
 
   // admin
   admin: {
+    promo: () => request('/admin/promo'),
+    savePromo: (b) => request('/admin/promo', { method: 'PUT', body: b }),
+    clearPromoPrices: () => request('/admin/promo/clear-prices', { method: 'POST' }),
+    inbox: () => request('/messages/inbox'),
     stats: () => request('/orders/stats'),
     users: () => request('/orders/users'),
+    ordersOnDay: (day) => request(`/orders/day/${day}`),
+    deleteOrder: (id) => request(`/orders/${id}`, { method: 'DELETE' }),
+    revenue: (days = 30) => request(`/orders/revenue?days=${days}`),
     orders: (status) => request(`/orders${status ? `?status=${status}` : ''}`),
+    createManualOrder: (b) => request('/orders/manual', { method: 'POST', body: b }),
     setOrderStatus: (id, status) => request(`/orders/${id}/status`, { method: 'PATCH', body: { status } }),
     setPaymentStatus: (id, status) => request(`/orders/${id}/payment`, { method: 'PATCH', body: { status } }),
     meals: () => request('/admin/meals'),

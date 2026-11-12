@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Leaf, Flame, Truck, Wallet, Clock, MousePointerClick } from 'lucide-react';
 import { api, money } from '../api.js';
 import ItemCard from '../components/ItemCard.jsx';
+import { PromoHero } from '../components/PromoBanner.jsx';
+import { usePromo } from '../context/PromoContext.jsx';
 
 function HeroCard({ tone, badge, BadgeIcon, title, text, cta, to, image }) {
   const green = tone === 'green';
@@ -28,12 +30,26 @@ function HeroCard({ tone, badge, BadgeIcon, title, text, cta, to, image }) {
 
 export default function Home() {
   const [meals, setMeals] = useState(null);
+  const { promo } = usePromo();
+  const [deals, setDeals] = useState([]);
   const [settings, setSettings] = useState({ mealZones: [], groceryDeliveryFee: 20 });
 
   useEffect(() => {
     api.mealsToday().then((m) => setMeals(Array.isArray(m) ? m : [])).catch(() => setMeals([]));
     api.storeSettings().then(setSettings).catch(() => {});
   }, []);
+
+  // Items on promo, shown right under the event banner.
+  useEffect(() => {
+    if (!promo.enabled) { setDeals([]); return; }
+    Promise.all([
+      api.products({ promo: '1', in_stock: '1' }).catch(() => []),
+      api.mealsToday({ promo: '1' }).catch(() => []),
+    ]).then(([p, m]) => setDeals([
+      ...(Array.isArray(m) ? m.filter((x) => x.on_promo).map((x) => ({ ...x, _type: 'meal' })) : []),
+      ...(Array.isArray(p) ? p.filter((x) => x.on_promo).map((x) => ({ ...x, _type: 'product' })) : []),
+    ]));
+  }, [promo.enabled, promo.name]);
 
   const trust = [
     { Icon: Truck, title: 'Fast Delivery', text: `Meals from ${money(Math.min(...(settings.mealZones.length ? settings.mealZones.map((z) => z.fee) : [5])))}` },
@@ -45,6 +61,7 @@ export default function Home() {
   return (
     <>
       <div className="mx-auto max-w-7xl px-3 pb-6 pt-6 sm:px-6 sm:pb-8 sm:pt-8">
+        {promo.enabled && <div className="mb-6 sm:mb-8"><PromoHero /></div>}
         <p className="text-center text-[11px] font-bold uppercase leading-relaxed tracking-[0.1em] text-leaf sm:text-xs sm:tracking-[0.25em]">
           Fresh groceries &amp; hot Ghanaian meals, ordered in minutes.
         </p>
@@ -59,6 +76,15 @@ export default function Home() {
             text="See today's available meals and place an order for pickup or delivery." cta="Order Food" to="/food" image="/images/food.jpg" />
         </div>
       </div>
+
+      {deals.length > 0 && (
+        <section className="mx-auto max-w-7xl px-3 pb-8 sm:px-6 sm:pb-10">
+          <h2 className="flex items-center gap-2 text-xl font-bold sm:text-2xl">{promo.name} deals</h2>
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+            {deals.slice(0, 8).map((d) => <ItemCard key={`${d._type}-${d.id}`} item={d} type={d._type} accent={d._type === 'meal' ? 'red' : 'green'} />)}
+          </div>
+        </section>
+      )}
 
       <section className="mx-auto max-w-7xl px-3 pb-10 sm:px-6 sm:pb-12">
         <div className="flex items-center justify-between">
